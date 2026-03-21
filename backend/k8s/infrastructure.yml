@@ -1,0 +1,170 @@
+# ═══════════════════════════════════════════════
+# Kubernetes Namespace
+# ═══════════════════════════════════════════════
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dulich
+---
+# ═══════════════════════════════════════════════
+# PostgreSQL StatefulSet
+# ═══════════════════════════════════════════════
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: dulich
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              value: "dulich"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dulich-secrets
+                  key: db-password
+            - name: POSTGRES_MULTIPLE_DATABASES
+              value: "auth_db,user_db,tour_db,booking_db,payment_db,review_db,itinerary_db,notification_db"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: dulich
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+# ═══════════════════════════════════════════════
+# RabbitMQ Deployment
+# ═══════════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: dulich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management-alpine
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: "dulich"
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: dulich-secrets
+                  key: rabbitmq-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: dulich
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+    - name: management
+      port: 15672
+---
+# ═══════════════════════════════════════════════
+# Redis Deployment
+# ═══════════════════════════════════════════════
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: dulich
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          command: ["redis-server", "--requirepass", "$(REDIS_PASSWORD)"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dulich-secrets
+                  key: redis-password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: dulich
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+---
+# ═══════════════════════════════════════════════
+# Secrets
+# ═══════════════════════════════════════════════
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dulich-secrets
+  namespace: dulich
+type: Opaque
+stringData:
+  db-password: "dulich_secret"
+  rabbitmq-password: "dulich_secret"
+  redis-password: "dulich_secret"
+  jwt-secret: "dG91ci1ib29raW5nLXBsYXRmb3JtLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5n"

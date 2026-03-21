@@ -1,0 +1,25 @@
+server:
+  port: 8092
+spring:
+  application:
+    name: guide-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/tour_db
+    username: dulich
+    password: dulich_secret
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: dulich
+    password: dulich_secret
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

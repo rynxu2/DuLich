@@ -1,0 +1,63 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      # API Gateway Pattern — route all /api/** requests to appropriate microservices
+      # Services are resolved via Eureka (lb:// = load-balanced)
+      routes:
+        - id: identity-service
+          uri: lb://identity-service
+          predicates:
+            - Path=/api/auth/**, /api/users/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: tour-service
+          uri: lb://tour-service
+          predicates:
+            - Path=/api/tours/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: booking-service
+          uri: lb://booking-service
+          predicates:
+            - Path=/api/bookings/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: itinerary-service
+          uri: lb://itinerary-service
+          predicates:
+            - Path=/api/itinerary/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+      # Global CORS configuration for mobile app
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+
+# Eureka client configuration
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# JWT secret — must match the secret used in Identity Service
+jwt:
+  secret: "dG91ci1ib29raW5nLXBsYXRmb3JtLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5n"
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG

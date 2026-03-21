@@ -1,0 +1,40 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/auth_db
+    username: dulich
+    password: dulich_secret
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: dulich
+    password: dulich_secret
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: dulich_secret
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+jwt:
+  secret: "dG91ci1ib29raW5nLXBsYXRmb3JtLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5n"
+  access-token-expiration: 86400000   # 24 hours
+  refresh-token-expiration: 604800000  # 7 days

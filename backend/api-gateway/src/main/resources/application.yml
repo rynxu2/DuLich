@@ -1,0 +1,195 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        # ═══════════════════════════════════════
+        #  AUTH SERVICE — Authentication & JWT
+        # ═══════════════════════════════════════
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  USER SERVICE — Profile & Favorites
+        # ═══════════════════════════════════════
+        - id: user-service-profile
+          uri: lb://user-service
+          predicates:
+            - Path=/api/users/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: user-service-favorites
+          uri: lb://user-service
+          predicates:
+            - Path=/api/favorites/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  TOUR CATALOG SERVICE
+        # ═══════════════════════════════════════
+        - id: tour-service
+          uri: lb://tour-service
+          predicates:
+            - Path=/api/tours/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  BOOKING SERVICE
+        # ═══════════════════════════════════════
+        - id: booking-service
+          uri: lb://booking-service
+          predicates:
+            - Path=/api/bookings/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  PAYMENT SERVICE
+        # ═══════════════════════════════════════
+        - id: payment-service
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  REVIEW SERVICE
+        # ═══════════════════════════════════════
+        - id: review-service
+          uri: lb://review-service
+          predicates:
+            - Path=/api/reviews/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  ITINERARY SERVICE
+        # ═══════════════════════════════════════
+        - id: itinerary-service
+          uri: lb://itinerary-service
+          predicates:
+            - Path=/api/itinerary/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  NOTIFICATION SERVICE
+        # ═══════════════════════════════════════
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  GUIDE SERVICE
+        # ═══════════════════════════════════════
+        - id: guide-service
+          uri: lb://guide-service
+          predicates:
+            - Path=/api/guides/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  ANALYTICS SERVICE
+        # ═══════════════════════════════════════
+        - id: analytics-service
+          uri: lb://analytics-service
+          predicates:
+            - Path=/api/analytics/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  REAL-TIME SERVICE (REST + WebSocket)
+        # ═══════════════════════════════════════
+        - id: realtime-service
+          uri: lb://realtime-service
+          predicates:
+            - Path=/api/realtime/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        - id: realtime-websocket
+          uri: lb:ws://realtime-service
+          predicates:
+            - Path=/ws/**
+
+        # ═══════════════════════════════════════
+        #  ADMIN SERVICE
+        # ═══════════════════════════════════════
+        - id: admin-service
+          uri: lb://admin-service
+          predicates:
+            - Path=/api/admin/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  EXPENSE SERVICE
+        # ═══════════════════════════════════════
+        - id: expense-service
+          uri: lb://expense-service
+          predicates:
+            - Path=/api/expenses/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  PRICING SERVICE
+        # ═══════════════════════════════════════
+        - id: pricing-service
+          uri: lb://pricing-service
+          predicates:
+            - Path=/api/pricing/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+        # ═══════════════════════════════════════
+        #  STORAGE SERVICE
+        # ═══════════════════════════════════════
+        - id: storage-service
+          uri: lb://storage-service
+          predicates:
+            - Path=/api/storage/**
+          filters:
+            - RewritePath=/api/(?<segment>.*), /${segment}
+
+      # Global CORS
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+
+# Eureka client
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+# JWT secret (shared)
+jwt:
+  secret: "dG91ci1ib29raW5nLXBsYXRmb3JtLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5n"
+
+# Logging
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
