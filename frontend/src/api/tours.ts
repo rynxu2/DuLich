@@ -33,6 +33,7 @@ export interface Tour {
   location: string;
   category: string;
   price: number;
+  originalPrice?: number;
   duration: number;
   maxParticipants: number;
   rating: number;

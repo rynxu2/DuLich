@@ -1,15 +1,10 @@
 /**
- * Itinerary Screen — Timeline UI with activity checklist and personal notes
- *
- * Flow:
- * 1. Fetch booking details via bookingsApi.getById(bookingId)
- * 2. Use confirmed bookingId to fetch itinerary via itineraryApi.getByBooking()
- * 3. Display timeline with check/note functionality
+ * Premium Itinerary Screen — Beautiful timeline with progress ring and image header
  */
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
-  TextInput as RNTextInput, Share, Alert,
+  TextInput as RNTextInput, Share, Alert, ImageBackground, Dimensions
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -18,13 +13,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TimelineItem from '../components/TimelineItem';
 import { ItineraryItem, itineraryApi } from '../api/itinerary';
 import { Booking, bookingsApi } from '../api/bookings';
-import { TripsStackParamList } from '../navigation/MainTabs';
+import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 
 type Props = {
-  navigation: NativeStackNavigationProp<TripsStackParamList, 'Itinerary'>;
-  route: RouteProp<TripsStackParamList, 'Itinerary'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Itinerary'>;
+  route: RouteProp<RootStackParamList, 'Itinerary'>;
 };
+
+const BG_IMAGE = "https://images.unsplash.com/photo-1506012787146-f92b2d7d6d96?q=80&w=1200&auto=format&fit=crop";
+const { width } = Dimensions.get('window');
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   PENDING:   { label: 'Đang xử lý',  color: theme.colors.warning },
@@ -46,391 +44,277 @@ export default function ItineraryScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
+      setLoading(true); setError(null);
       try {
-        // Step 1: Fetch booking details first
         const bookingRes = await bookingsApi.getById(bookingId);
-        const bookingData = bookingRes.data;
-        console.log('Booking data:', bookingData);
-        setBooking(bookingData);
-
-        // Step 2: Use confirmed bookingId to fetch itinerary
+        setBooking(bookingRes.data);
         try {
-          const itineraryRes = await itineraryApi.getByBooking(bookingData.id);
-          console.log('Itinerary data:', itineraryRes.data);
+          const itineraryRes = await itineraryApi.getByBooking(bookingRes.data.id);
           setItems(itineraryRes.data || []);
-        } catch {
-          // Itinerary might not exist yet for this booking
-          setItems([]);
-        }
+        } catch { setItems([]); }
       } catch {
-        setError('Không thể tải thông tin booking. Vui lòng thử lại.');
-        setBooking(null);
-        setItems([]);
-      } finally {
-        setLoading(false);
-      }
+        setError('Không thể tải thông tin. Vui lòng thử lại.');
+      } finally { setLoading(false); }
     };
-
     fetchData();
   }, [bookingId]);
 
   const toggleCheck = async (itemId: number) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
-
     const newStatus = item.status === 'COMPLETED' ? 'PLANNED' : 'COMPLETED';
-
-    // Optimistic update
-    setItems(prev => prev.map(i =>
-      i.id === itemId ? { ...i, status: newStatus } : i
-    ));
-
-    // Sync with server
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, status: newStatus } : i));
     try {
       await itineraryApi.update(itemId, { status: newStatus });
     } catch {
-      // Revert on failure
-      setItems(prev => prev.map(i =>
-        i.id === itemId ? { ...i, status: item.status } : i
-      ));
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, status: item.status } : i));
     }
   };
 
   const handleShare = async () => {
-    const title = booking ? tourTitle : tourTitle;
-    let shareText = `📋 Lịch Trình: ${title}\n\n`;
-
+    let shareText = `📋 Hành Trình: ${tourTitle}\n\n`;
     if (booking) {
-      shareText += `📅 Ngày đi: ${formatDate(booking.bookingDate)}\n`;
-      shareText += `👥 Số khách: ${booking.travelers}\n\n`;
+      shareText += `📅 Khởi hành: ${new Date(booking.bookingDate).toLocaleDateString('vi-VN')}\n`;
+      shareText += `👥 Số lượng: ${booking.travelers} khách\n\n`;
     }
-
     const grouped = items.reduce<Record<number, ItineraryItem[]>>((acc, item) => {
-      if (!acc[item.dayNumber]) {acc[item.dayNumber] = [];}
-      acc[item.dayNumber].push(item);
-      return acc;
+      if (!acc[item.dayNumber]) acc[item.dayNumber] = [];
+      acc[item.dayNumber].push(item); return acc;
     }, {});
-
+    
     Object.entries(grouped).forEach(([day, dayItems]) => {
-      shareText += `📅 Ngày ${day}:\n`;
+      shareText += `Ngày ${day}:\n`;
       dayItems.forEach(item => {
-        const checked = item.status === 'COMPLETED' ? '✅' : '⬜';
-        shareText += `  ${checked} ${item.startTime} - ${item.activityTitle}`;
-        if (item.location) {shareText += ` (${item.location})`;}
-        shareText += '\n';
+        shareText += ` - [${item.status === 'COMPLETED' ? 'x' : ' '}] ${item.startTime || ''} ${item.activityTitle}\n`;
       });
       shareText += '\n';
     });
 
     try {
-      await Share.share({ message: shareText, title: `Lịch trình ${title}` });
-    } catch {
-      Alert.alert('Lỗi', 'Không thể chia sẻ lịch trình');
-    }
+      await Share.share({ message: shareText, title: `Lịch trình ${tourTitle}` });
+    } catch { Alert.alert('Lỗi', 'Không thể chia sẻ'); }
   };
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 
   const grouped = items.reduce<Record<number, ItineraryItem[]>>((acc, item) => {
-    if (!acc[item.dayNumber]) {acc[item.dayNumber] = [];}
+    if (!acc[item.dayNumber]) acc[item.dayNumber] = [];
     acc[item.dayNumber].push(item);
     return acc;
   }, {});
 
   const totalItems = items.length;
   const completedItems = items.filter(i => i.status === 'COMPLETED').length;
-  const progress = totalItems > 0 ? completedItems / totalItems : 0;
+  const progressPercent = totalItems > 0 ? (completedItems / totalItems) * 100 : 0;
+
+  if (loading) {
+     return (
+       <View style={styles.center}>
+         <ActivityIndicator size="large" color={theme.colors.primary} />
+         <Text style={styles.loadingText}>Đang chuẩn bị lịch trình...</Text>
+       </View>
+     );
+  }
+
+  if (error) {
+     return (
+       <View style={styles.center}>
+         <Icon name="map-marker-off-outline" size={64} color={theme.colors.textLight} />
+         <Text style={styles.errorText}>{error}</Text>
+         <TouchableOpacity style={styles.retryBtn} onPress={() => navigation.goBack()}>
+           <Text style={styles.retryText}>Quay lại</Text>
+         </TouchableOpacity>
+       </View>
+     );
+  }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={theme.colors.text} />
-        </TouchableOpacity>
-        <View style={{flex: 1}}>
-          <Text style={styles.hTitle}>Lịch Trình</Text>
-          <Text style={styles.hSub} numberOfLines={1}>{tourTitle}</Text>
-        </View>
-        <TouchableOpacity onPress={handleShare} style={styles.shareBtn}>
-          <Icon name="share-variant" size={22} color={theme.colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={styles.loadingText}>Đang tải lịch trình...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Icon name="alert-circle-outline" size={48} color={theme.colors.textLight} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => {
-              setLoading(true);
-              setError(null);
-              bookingsApi.getById(bookingId)
-                .then(res => {
-                  setBooking(res.data);
-                  return itineraryApi.getByBooking(res.data.id);
-                })
-                .then(res => setItems(res.data || []))
-                .catch(() => setError('Không thể tải lịch trình.'))
-                .finally(() => setLoading(false));
-            }}>
-            <Icon name="refresh" size={16} color="#fff" />
-            <Text style={styles.retryText}>Thử lại</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          {/* Booking Info Card */}
-          {booking && (
-            <View style={styles.bookingInfoCard}>
-              <View style={styles.bookingInfoRow}>
-                <View style={styles.bookingInfoItem}>
-                  <Icon name="calendar" size={16} color={theme.colors.primary} />
-                  <Text style={styles.bookingInfoText}>{formatDate(booking.bookingDate)}</Text>
-                </View>
-                <View style={styles.bookingInfoItem}>
-                  <Icon name="account-group" size={16} color={theme.colors.primary} />
-                  <Text style={styles.bookingInfoText}>{booking.travelers} khách</Text>
-                </View>
-                <View style={styles.bookingInfoItem}>
-                  <Icon name="cash" size={16} color={theme.colors.accent} />
-                  <Text style={styles.bookingInfoText}>{formatPrice(booking.totalPrice)}</Text>
-                </View>
-              </View>
-              {booking.status && (
-                <View style={[
-                  styles.bookingStatusBadge,
-                  { backgroundColor: (STATUS_LABELS[booking.status]?.color || theme.colors.textLight) + '20' },
-                ]}>
-                  <Text style={[
-                    styles.bookingStatusText,
-                    { color: STATUS_LABELS[booking.status]?.color || theme.colors.textLight },
-                  ]}>
-                    {STATUS_LABELS[booking.status]?.label || booking.status}
-                  </Text>
-                </View>
-              )}
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }} bounces={false}>
+        {/* Header Cover Image */}
+        <ImageBackground source={{ uri: BG_IMAGE }} style={styles.coverImage}>
+          <View style={[styles.coverOverlay, { paddingTop: insets.top + 10 }]}>
+            <View style={styles.topNav}>
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.circleBtn}>
+                <Icon name="chevron-left" size={28} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleShare} style={styles.circleBtn}>
+                <Icon name="export-variant" size={24} color="#fff" />
+              </TouchableOpacity>
             </View>
-          )}
-
-          {/* Progress Bar */}
-          {items.length > 0 && (
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressText}>Tiến trình</Text>
-                <Text style={styles.progressPercent}>{completedItems}/{totalItems}</Text>
-              </View>
-              <View style={styles.progressBarBg}>
-                <View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
-              </View>
+            <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 40, paddingHorizontal: 20 }}>
+               <Text style={styles.headerSubtitle}>NHẬT KÝ HÀNH TRÌNH</Text>
+               <Text style={styles.headerTitle} numberOfLines={2}>{tourTitle}</Text>
             </View>
-          )}
+          </View>
+        </ImageBackground>
 
-          {/* Itinerary Timeline */}
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {items.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Icon name="calendar-blank-outline" size={64} color={theme.colors.textLight} />
-                <Text style={styles.emptyTitle}>Chưa có lịch trình</Text>
-                <Text style={styles.emptySubtitle}>
-                  Lịch trình chi tiết sẽ được cập nhật khi gần ngày khởi hành.
-                </Text>
-              </View>
-            ) : (
-              Object.entries(grouped).map(([day, dayItems]) => {
-                const dayCompleted = dayItems.filter(i => i.status === 'COMPLETED').length;
-                return (
-                  <View key={day} style={styles.daySection}>
-                    <View style={styles.dayHeader}>
-                      <View style={styles.dayBadge}>
-                        <Text style={styles.dayBadgeText}>Ngày {day}</Text>
+        {/* Floating Info & Progress Board */}
+        <View style={styles.boardWrapper}>
+           <View style={styles.infoBoard}>
+             <View style={styles.progressRow}>
+               <View style={{ flex: 1 }}>
+                 <Text style={styles.boardLabel}>Tiến độ chuyến đi</Text>
+                 <Text style={styles.boardValue}>{completedItems} <Text style={{ fontSize: 14, color: theme.colors.textSecondary }}>/ {totalItems} hoạt động</Text></Text>
+               </View>
+               <View style={styles.progressRingBg}>
+                 <Text style={styles.progressRingText}>{Math.round(progressPercent)}%</Text>
+               </View>
+             </View>
+             <View style={styles.progressBarWrapper}>
+               <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+             </View>
+
+             <View style={styles.divider} />
+
+             <View style={styles.bookingRow}>
+               <View style={styles.bookingCol}>
+                 <Icon name="calendar-month" size={16} color={theme.colors.primary} />
+                 <Text style={styles.bookingText}>{booking ? new Date(booking.bookingDate).toLocaleDateString('vi-VN') : 'N/A'}</Text>
+               </View>
+               <View style={styles.bookingCol}>
+                 <Icon name="account-group" size={16} color={theme.colors.primary} />
+                 <Text style={styles.bookingText}>{booking?.travelers || 0} Hành khách</Text>
+               </View>
+             </View>
+           </View>
+
+           {/* Timeline Items */}
+           <View style={{ marginTop: 30, paddingHorizontal: 10 }}>
+              {items.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Icon name="bag-suitcase-outline" size={64} color={theme.colors.border} />
+                  <Text style={styles.emptyTitle}>Chưa có lịch trình</Text>
+                  <Text style={styles.emptySubtitle}>Lịch trình chi tiết đang được cập nhật. Bạn vui lòng quay lại sau.</Text>
+                </View>
+              ) : (
+                Object.entries(grouped).map(([day, dayItems]) => {
+                  const dayCompleted = dayItems.filter(i => i.status === 'COMPLETED').length;
+                  const isDayDone = dayItems.length > 0 && dayCompleted === dayItems.length;
+
+                  return (
+                    <View key={day} style={styles.dayGroup}>
+                      <View style={styles.dayHeaderRow}>
+                         <View style={[styles.dayBadge, isDayDone && { backgroundColor: theme.colors.success }]}>
+                           <Text style={styles.dayBadgeText}>Ngày {day}</Text>
+                         </View>
+                         <Text style={styles.dayProgressText}>{dayCompleted}/{dayItems.length} hoàn thành</Text>
+                         <View style={styles.dayLineDivider} />
                       </View>
-                      <Text style={styles.dayProgress}>{dayCompleted}/{dayItems.length} hoàn thành</Text>
-                      <View style={styles.dayLine} />
-                    </View>
-                    {dayItems.map((item, idx) => (
-                      <View key={item.id}>
-                        <TouchableOpacity
-                          style={styles.checkableItem}
-                          onPress={() => toggleCheck(item.id)}
-                          activeOpacity={0.8}>
-                          <Icon
-                            name={item.status === 'COMPLETED' ? 'checkbox-marked-circle' : 'checkbox-blank-circle-outline'}
-                            size={24}
-                            color={item.status === 'COMPLETED' ? theme.colors.success : theme.colors.textLight}
-                          />
-                          <View style={[
-                            styles.itemContent,
-                            item.status === 'SKIPPED' && styles.itemChecked
-                          ]}>
-                            <TimelineItem
-                              activityTitle={item.activityTitle}
-                              description={item.description}
-                              startTime={item.startTime}
-                              location={item.location}
-                              isLast={idx === dayItems.length - 1}
-                              status={item.status as 'PLANNED' | 'COMPLETED' | 'SKIPPED'}
-                            />
-                          </View>
-                        </TouchableOpacity>
 
-                        {/* Personal Note */}
-                        <View style={styles.noteSection}>
-                          {editingNoteId === item.id ? (
-                            <View style={styles.noteInput}>
-                              <RNTextInput
-                                value={notes[item.id] || ''}
-                                onChangeText={(text) => setNotes(prev => ({ ...prev, [item.id]: text }))}
-                                placeholder="Ghi chú..."
-                                style={styles.noteTextInput}
-                                placeholderTextColor={theme.colors.textLight}
-                                autoFocus
-                              />
-                              <TouchableOpacity
-                                onPress={() => setEditingNoteId(null)}
-                                style={styles.noteSaveBtn}>
-                                <Icon name="check" size={18} color={theme.colors.primary} />
-                              </TouchableOpacity>
-                            </View>
-                          ) : notes[item.id] ? (
-                            <TouchableOpacity
-                              style={styles.noteDisplay}
-                              onPress={() => setEditingNoteId(item.id)}>
-                              <Icon name="note-outline" size={14} color={theme.colors.primary} />
-                              <Text style={styles.noteText}>{notes[item.id]}</Text>
-                            </TouchableOpacity>
-                          ) : (
-                            <TouchableOpacity
-                              style={styles.addNoteBtn}
-                              onPress={() => setEditingNoteId(item.id)}>
-                              <Icon name="plus" size={14} color={theme.colors.textLight} />
-                              <Text style={styles.addNoteText}>Thêm ghi chú</Text>
-                            </TouchableOpacity>
-                          )}
+                      {dayItems.map((item, idx) => (
+                        <View key={item.id} style={{ marginBottom: 12 }}>
+                           <TouchableOpacity activeOpacity={0.9} onPress={() => toggleCheck(item.id)}>
+                             <TimelineItem
+                               activityTitle={item.activityTitle}
+                               description={item.description}
+                               startTime={item.startTime}
+                               location={item.location}
+                               isLast={idx === dayItems.length - 1}
+                               status={item.status as 'PLANNED' | 'COMPLETED' | 'SKIPPED'}
+                             />
+                           </TouchableOpacity>
+                           
+                           {/* Beautiful Note Section embedded */}
+                           <View style={styles.noteWrapper}>
+                             <View style={styles.noteLineIndent} />
+                             <View style={styles.noteContentArea}>
+                               {editingNoteId === item.id ? (
+                                 <View style={styles.noteInputBox}>
+                                   <RNTextInput
+                                     value={notes[item.id] || ''}
+                                     onChangeText={(text) => setNotes(prev => ({ ...prev, [item.id]: text }))}
+                                     placeholder="Viết ghi chú cá nhân..."
+                                     style={styles.noteTextInput}
+                                     placeholderTextColor={theme.colors.textLight}
+                                     autoFocus
+                                   />
+                                   <TouchableOpacity onPress={() => setEditingNoteId(null)} style={styles.noteSaveBtn}>
+                                     <Text style={styles.noteSaveBtnText}>Xong</Text>
+                                   </TouchableOpacity>
+                                 </View>
+                               ) : notes[item.id] ? (
+                                 <TouchableOpacity style={styles.noteDisplayBox} onPress={() => setEditingNoteId(item.id)}>
+                                   <Icon name="pencil-outline" size={14} color={theme.colors.primary} />
+                                   <Text style={styles.noteTextValue}>{notes[item.id]}</Text>
+                                 </TouchableOpacity>
+                               ) : (
+                                 <TouchableOpacity style={styles.addNoteBtn} onPress={() => setEditingNoteId(item.id)}>
+                                   <Icon name="plus-circle-outline" size={16} color={theme.colors.textLight} />
+                                   <Text style={styles.addNoteLabel}>Thêm ghi chú cá nhân</Text>
+                                 </TouchableOpacity>
+                               )}
+                             </View>
+                           </View>
                         </View>
-                      </View>
-                    ))}
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
-        </>
-      )}
+                      ))}
+                    </View>
+                  );
+                })
+              )}
+           </View>
+
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface,
-  },
-  backBtn: { padding: 8 },
-  hTitle: { ...theme.typography.h3, color: theme.colors.text },
-  hSub: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, marginTop: 2 },
-  shareBtn: { padding: 8 },
-
-  // Loading / Error
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, marginTop: 12 },
-  errorText: { ...theme.typography.body, color: theme.colors.textLight, marginTop: 12, textAlign: 'center' },
-  retryBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: theme.colors.primary, borderRadius: 20,
-    paddingHorizontal: 20, paddingVertical: 10, marginTop: 16,
-  },
-  retryText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  loadingText: { fontSize: 14, color: theme.colors.textSecondary, marginTop: 16 },
+  errorText: { fontSize: 16, color: theme.colors.textSecondary, marginTop: 16, textAlign: 'center' },
+  retryBtn: { marginTop: 20, backgroundColor: theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 20 },
+  retryText: { color: '#fff', fontWeight: '800' },
 
-  // Booking info
-  bookingInfoCard: {
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: 20, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border,
-  },
-  bookingInfoRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  bookingInfoItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-  },
-  bookingInfoText: { ...theme.typography.bodySmall, color: theme.colors.text, fontWeight: '500' },
-  bookingStatusBadge: {
-    alignSelf: 'flex-start', borderRadius: 12,
-    paddingHorizontal: 12, paddingVertical: 4, marginTop: 10,
-  },
-  bookingStatusText: { fontSize: 12, fontWeight: '700' },
+  coverImage: { width: '100%', height: 320 },
+  coverOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', paddingHorizontal: 16 },
+  
+  topNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 },
+  circleBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+  
+  headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '800', letterSpacing: 1.5, marginBottom: 4 },
+  headerTitle: { color: '#fff', fontSize: 26, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 6 },
+  
+  boardWrapper: { marginTop: -30, borderTopLeftRadius: 30, borderTopRightRadius: 30, backgroundColor: '#F9FAFB', paddingHorizontal: 20, paddingTop: 20 },
+  infoBoard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10, marginTop: -60 },
+  
+  progressRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  boardLabel: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4, fontWeight: '600' },
+  boardValue: { fontSize: 24, fontWeight: '900', color: theme.colors.primary },
+  progressRingBg: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.success + '15', justifyContent: 'center', alignItems: 'center' },
+  progressRingText: { color: theme.colors.success, fontSize: 13, fontWeight: '800' },
+  
+  progressBarWrapper: { height: 8, backgroundColor: '#F3F4F6', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: theme.colors.success, borderRadius: 4 },
+  
+  divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 16 },
+  
+  bookingRow: { flexDirection: 'row', gap: 24 },
+  bookingCol: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  bookingText: { fontSize: 14, fontWeight: '600', color: theme.colors.text },
 
-  // Progress
-  progressSection: {
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: theme.colors.surface, borderBottomWidth: 1, borderBottomColor: theme.colors.border,
-  },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  progressText: { ...theme.typography.caption, color: theme.colors.textSecondary },
-  progressPercent: { ...theme.typography.caption, color: theme.colors.primary, fontWeight: '700' },
-  progressBarBg: {
-    height: 6, borderRadius: 3, backgroundColor: theme.colors.surfaceVariant,
-  },
-  progressBarFill: {
-    height: 6, borderRadius: 3, backgroundColor: theme.colors.success,
-  },
+  emptyState: { alignItems: 'center', paddingVertical: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.textSecondary, marginTop: 16, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: theme.colors.textLight, textAlign: 'center', paddingHorizontal: 20 },
 
-  // Content
-  content: { paddingHorizontal: 20, paddingVertical: 20, paddingBottom: 40 },
+  dayGroup: { marginBottom: 32 },
+  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  dayBadge: { backgroundColor: theme.colors.accent, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
+  dayBadgeText: { color: '#fff', fontSize: 14, fontWeight: '900' },
+  dayProgressText: { fontSize: 13, color: theme.colors.textSecondary, fontWeight: '600' },
+  dayLineDivider: { flex: 1, height: 2, backgroundColor: '#E5E7EB', borderRadius: 1 },
 
-  // Empty state
-  emptyState: { alignItems: 'center', paddingTop: 60 },
-  emptyTitle: { ...theme.typography.h3, color: theme.colors.textLight, marginTop: 16 },
-  emptySubtitle: {
-    ...theme.typography.bodySmall, color: theme.colors.textLight,
-    marginTop: 6, textAlign: 'center', paddingHorizontal: 40,
-  },
+  noteWrapper: { flexDirection: 'row', marginTop: -20, marginBottom: 10 },
+  noteLineIndent: { width: 32, alignItems: 'center' },
+  noteContentArea: { flex: 1, marginLeft: 10 },
+  addNoteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12 },
+  addNoteLabel: { fontSize: 13, color: theme.colors.textLight, fontWeight: '500' },
+  
+  noteInputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF5F5', borderRadius: 12, paddingHorizontal: 12 },
+  noteTextInput: { flex: 1, fontSize: 14, color: theme.colors.text, paddingVertical: 10 },
+  noteSaveBtn: { backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  noteSaveBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
 
-  // Day section
-  daySection: { marginBottom: 24 },
-  dayHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 10 },
-  dayBadge: { backgroundColor: theme.colors.primary, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 },
-  dayBadgeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  dayProgress: { ...theme.typography.caption, color: theme.colors.textSecondary },
-  dayLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
-  checkableItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  itemContent: { flex: 1 },
-  itemChecked: { opacity: 0.5 },
-
-  // Notes
-  noteSection: { marginLeft: 32, marginBottom: 8, marginTop: -12 },
-  noteInput: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: theme.colors.surfaceVariant, borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 6,
-  },
-  noteTextInput: { flex: 1, fontSize: 13, color: theme.colors.text, padding: 0 },
-  noteSaveBtn: { padding: 4 },
-  noteDisplay: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 4,
-  },
-  noteText: { ...theme.typography.bodySmall, color: theme.colors.primary, fontStyle: 'italic' },
-  addNoteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingVertical: 4,
-  },
-  addNoteText: { ...theme.typography.caption, color: theme.colors.textLight },
+  noteDisplayBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFBEB', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
+  noteTextValue: { fontSize: 14, color: '#D97706', fontStyle: 'italic', flex: 1 },
 });

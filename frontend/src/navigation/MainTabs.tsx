@@ -1,109 +1,24 @@
 /**
  * Main Tabs — Bottom tab navigation for authenticated users
  * 
- * Tabs: Home | My Trips | Notifications | Profile
- * Each tab has nested stack navigators for sub-screens.
+ * Tabs: Home | Search | My Trips | Favorites | Profile
  */
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HomeScreen from '../screens/HomeScreen';
-import TourDetailScreen from '../screens/TourDetailScreen';
-import BookingScreen from '../screens/BookingScreen';
+import SearchScreen from '../screens/SearchScreen';
 import MyTripsScreen from '../screens/MyTripsScreen';
-import ItineraryScreen from '../screens/ItineraryScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
-import ProfileScreen from '../screens/ProfileScreen';
-import ReviewScreen from '../screens/ReviewScreen';
-import EditProfileScreen from '../screens/EditProfileScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
-import FeedbackScreen from '../screens/FeedbackScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import { theme } from '../theme';
 
-// Home stack with nested tour details
-export type HomeStackParamList = {
-  HomeMain: undefined;
-  TourDetail: { tourId: number };
-  Booking: {
-    tourId: number;
-    tourTitle: string;
-    tourPrice: number;
-    departureId?: number;
-    departureDate?: string;
-  };
-  Review: { tourId: number; tourTitle: string };
-};
-
-const HomeStackNav = createNativeStackNavigator<HomeStackParamList>();
-
-function HomeStack() {
-  return (
-    <HomeStackNav.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}>
-      <HomeStackNav.Screen name="HomeMain" component={HomeScreen} />
-      <HomeStackNav.Screen name="TourDetail" component={TourDetailScreen} />
-      <HomeStackNav.Screen name="Booking" component={BookingScreen} />
-      <HomeStackNav.Screen name="Review" component={ReviewScreen} />
-    </HomeStackNav.Navigator>
-  );
-}
-
-// Trips stack
-export type TripsStackParamList = {
-  TripsMain: undefined;
-  Itinerary: { bookingId: number; tourTitle: string };
-};
-
-const TripsStackNav = createNativeStackNavigator<TripsStackParamList>();
-
-function TripsStack() {
-  return (
-    <TripsStackNav.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}>
-      <TripsStackNav.Screen name="TripsMain" component={MyTripsScreen} />
-      <TripsStackNav.Screen name="Itinerary" component={ItineraryScreen} />
-    </TripsStackNav.Navigator>
-  );
-}
-
-// Profile stack — includes edit profile, favorites, feedback
-export type ProfileStackParamList = {
-  ProfileMain: undefined;
-  EditProfile: undefined;
-  Favorites: undefined;
-  Feedback: undefined;
-};
-
-const ProfileStackNav = createNativeStackNavigator<ProfileStackParamList>();
-
-function ProfileStack() {
-  return (
-    <ProfileStackNav.Navigator
-      screenOptions={{
-        headerShown: false,
-        animation: 'slide_from_right',
-      }}>
-      <ProfileStackNav.Screen name="ProfileMain" component={ProfileScreen} />
-      <ProfileStackNav.Screen name="EditProfile" component={EditProfileScreen} />
-      <ProfileStackNav.Screen name="Favorites" component={FavoritesScreen} />
-      <ProfileStackNav.Screen name="Feedback" component={FeedbackScreen} />
-    </ProfileStackNav.Navigator>
-  );
-}
-
-// Main tab navigator
 export type MainTabParamList = {
-  Home: undefined;
-  MyTrips: undefined;
-  Notifications: undefined;
-  Profile: undefined;
+  HomeTab: undefined;
+  SearchTab: undefined;
+  MyTripsTab: undefined;
+  FavoritesTab: undefined;
+  ProfileTab: undefined;
 };
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -115,12 +30,13 @@ export default function MainTabs() {
         headerShown: false,
         tabBarIcon: ({ color, size }) => {
           const icons: Record<string, string> = {
-            Home: 'compass-outline',
-            MyTrips: 'bag-suitcase-outline',
-            Notifications: 'bell-outline',
-            Profile: 'account-outline',
+            HomeTab: 'compass-outline',
+            SearchTab: 'magnify',
+            MyTripsTab: 'bag-suitcase-outline',
+            FavoritesTab: 'heart-outline',
+            ProfileTab: 'account-outline',
           };
-          return <Icon name={icons[route.name]} size={size} color={color} />;
+          return <Icon name={icons[route.name] || 'circle'} size={size} color={color} />;
         },
         tabBarActiveTintColor: theme.colors.primary,
         tabBarInactiveTintColor: theme.colors.textLight,
@@ -130,6 +46,11 @@ export default function MainTabs() {
           height: 60,
           paddingBottom: 8,
           paddingTop: 4,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.05,
+          shadowRadius: 4,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -137,23 +58,28 @@ export default function MainTabs() {
         },
       })}>
       <Tab.Screen
-        name="Home"
-        component={HomeStack}
+        name="HomeTab"
+        component={HomeScreen}
         options={{ tabBarLabel: 'Khám Phá' }}
       />
       <Tab.Screen
-        name="MyTrips"
-        component={TripsStack}
+        name="SearchTab"
+        component={SearchScreen}
+        options={{ tabBarLabel: 'Tìm Kiếm' }}
+      />
+      <Tab.Screen
+        name="MyTripsTab"
+        component={MyTripsScreen}
         options={{ tabBarLabel: 'Chuyến Đi' }}
       />
       <Tab.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ tabBarLabel: 'Thông Báo' }}
+        name="FavoritesTab"
+        component={FavoritesScreen}
+        options={{ tabBarLabel: 'Yêu Thích' }}
       />
       <Tab.Screen
-        name="Profile"
-        component={ProfileStack}
+        name="ProfileTab"
+        component={ProfileScreen}
         options={{ tabBarLabel: 'Cá Nhân' }}
       />
     </Tab.Navigator>

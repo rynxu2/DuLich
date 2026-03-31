@@ -1,29 +1,34 @@
 /**
- * My Trips Screen — Booking history with status filter tabs and cancel functionality
+ * Premium My Trips Screen — Redesigned with Ticket-style cards
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator, Alert,
+  RefreshControl, ActivityIndicator, Alert, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { CompositeNavigationProp } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Booking, bookingsApi } from '../api/bookings';
-import { useAuth } from '../store/AuthContext';
-import { TripsStackParamList } from '../navigation/MainTabs';
+import { BookingResponse } from '../api/bookings';
+import { useUserBookings, useCancelBooking } from '../hooks/useBookings';
+import { MainTabParamList } from '../navigation/MainTabs';
+import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 
 type Props = {
-  navigation: NativeStackNavigationProp<TripsStackParamList, 'TripsMain'>;
+  navigation: CompositeNavigationProp<
+    BottomTabNavigationProp<MainTabParamList, 'MyTripsTab'>,
+    NativeStackNavigationProp<RootStackParamList>
+  >;
 };
 
-const STATUS_CONFIG: Record<string, { color: string; icon: string; label: string }> = {
-  CONFIRMED: { color: theme.colors.success, icon: 'check-circle', label: 'Đã xác nhận' },
-  PENDING: { color: theme.colors.warning, icon: 'clock-outline', label: 'Đang xử lý' },
-  CANCELLED: { color: theme.colors.error, icon: 'close-circle', label: 'Đã hủy' },
-  COMPLETED: { color: theme.colors.primary, icon: 'flag-checkered', label: 'Hoàn thành' },
+const STATUS_CONFIG: Record<string, { color: string; bgColor: string; icon: string; label: string }> = {
+  CONFIRMED: { color: '#059669', bgColor: '#D1FAE5', icon: 'check-decagram', label: 'Đã xác nhận' },
+  PENDING: { color: '#D97706', bgColor: '#FEF3C7', icon: 'clock-outline', label: 'Chờ xử lý' },
+  CANCELLED: { color: '#DC2626', bgColor: '#FEE2E2', icon: 'close-circle', label: 'Đã hủy' },
+  COMPLETED: { color: '#2563EB', bgColor: '#DBEAFE', icon: 'flag-checkered', label: 'Đã hoàn thành' },
 };
 
 const FILTER_TABS = [
@@ -33,74 +38,22 @@ const FILTER_TABS = [
   { key: 'cancelled', label: 'Đã hủy' },
 ];
 
-const SAMPLE_BOOKINGS: Booking[] = [
-  {
-    id: 1, userId: 1, tourId: 1,
-    tourTitle: 'Khám Phá Đà Nẵng - Hội An',
-    tourLocation: 'Đà Nẵng',
-    tourImage: 'https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=400',
-    bookingDate: '2026-04-15', travelers: 2,
-    status: 'CONFIRMED', totalPrice: 7000000,
-    createdAt: '2026-03-13T10:00:00',
-  },
-  {
-    id: 2, userId: 1, tourId: 3,
-    tourTitle: 'Phú Quốc - Đảo Ngọc',
-    tourLocation: 'Phú Quốc',
-    tourImage: 'https://images.unsplash.com/photo-1537956965359-7573183d1f57?w=400',
-    bookingDate: '2026-05-01', travelers: 1,
-    status: 'PENDING', totalPrice: 5800000,
-    createdAt: '2026-03-12T14:30:00',
-  },
-  {
-    id: 3, userId: 1, tourId: 2,
-    tourTitle: 'Vịnh Hạ Long - Kỳ Quan Thiên Nhiên',
-    tourLocation: 'Quảng Ninh',
-    tourImage: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=400',
-    bookingDate: '2026-02-10', travelers: 3,
-    status: 'COMPLETED', totalPrice: 12600000,
-    createdAt: '2026-01-20T09:00:00',
-  },
-];
-
 export default function MyTripsScreen({ navigation }: Props) {
-  const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const fetchBookings = useCallback(async () => {
-    try {
-      if (user?.id) {
-        const response = await bookingsApi.getByUser(user.id);
-        console.log(user.id);
-        setBookings(response.data);
-      }
-    } catch {
-      setBookings(SAMPLE_BOOKINGS);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [user]);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchBookings();
-    }, [fetchBookings])
-  );
+  const { data: bookings = [], isLoading: loading, isRefetching, refetch } = useUserBookings();
+  const { mutateAsync: cancelBooking } = useCancelBooking();
 
   const filteredBookings = bookings.filter(b => {
-    if (activeFilter === 'all') {return true;}
-    if (activeFilter === 'upcoming') {return b.status === 'CONFIRMED' || b.status === 'PENDING';}
-    if (activeFilter === 'completed') {return b.status === 'COMPLETED';}
-    if (activeFilter === 'cancelled') {return b.status === 'CANCELLED';}
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'upcoming') return b.status === 'CONFIRMED' || b.status === 'PENDING';
+    if (activeFilter === 'completed') return b.status === 'COMPLETED';
+    if (activeFilter === 'cancelled') return b.status === 'CANCELLED';
     return true;
   });
 
-  const handleCancelBooking = (booking: Booking) => {
+  const handleCancelBooking = (booking: BookingResponse) => {
     Alert.alert(
       'Hủy Booking',
       `Bạn có chắc muốn hủy "${booking.tourTitle || `Tour #${booking.tourId}`}"?\n\nLưu ý: Chính sách hoàn tiền sẽ áp dụng theo quy định.`,
@@ -110,30 +63,26 @@ export default function MyTripsScreen({ navigation }: Props) {
           text: 'Hủy Booking',
           style: 'destructive',
           onPress: async () => {
-            try {
-              await bookingsApi.cancel(booking.id);
-            } catch {
-              // Simulate cancel locally
-            }
-            setBookings(prev =>
-              prev.map(b => b.id === booking.id ? { ...b, status: 'CANCELLED' } : b)
-            );
-            Alert.alert('Đã Hủy', 'Booking đã được hủy thành công.');
+             try {
+               await cancelBooking(booking.id);
+               Alert.alert('Đã Hủy', 'Booking đã được hủy thành công.');
+             } catch {
+               Alert.alert('Lỗi', 'Không thể hủy booking. Vui lòng thử lại.');
+             }
           },
         },
       ]
     );
   };
 
-  const formatPrice = (price: number) =>
-    new Intl.NumberFormat('vi-VN').format(price) + 'đ';
+  const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const renderBooking = ({ item }: { item: Booking }) => {
+  const renderBooking = ({ item }: { item: BookingResponse }) => {
     const status = STATUS_CONFIG[item.status] || STATUS_CONFIG.PENDING;
     const tourName = item.tourTitle || `Tour #${item.tourId}`;
     const canCancel = item.status === 'CONFIRMED' || item.status === 'PENDING';
@@ -141,64 +90,73 @@ export default function MyTripsScreen({ navigation }: Props) {
 
     return (
       <TouchableOpacity
-        style={styles.bookingCard}
-        onPress={() => navigation.navigate('Itinerary', {
-          bookingId: item.id,
-          tourTitle: tourName,
-        })}
-        activeOpacity={0.9}>
-        <View style={styles.cardHeader}>
-          <View style={styles.tourInfo}>
-            <Icon name="compass" size={20} color={theme.colors.primary} />
-            <Text style={styles.tourName} numberOfLines={1}>{tourName}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: status.color + '20' }]}>
-            <Icon name={status.icon} size={14} color={status.color} />
-            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+        style={styles.card}
+        onPress={() => navigation.navigate('Itinerary', { bookingId: item.id, tourTitle: tourName })}
+        activeOpacity={0.95}>
+        
+        {/* Ticket Header Image */}
+        <View style={styles.cardImageContainer}>
+          <Image source={{ uri: item.tourImage || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=600' }} style={styles.cardImage} />
+          <View style={styles.cardOverlay} />
+          <View style={[styles.badge, { backgroundColor: status.bgColor }]}>
+             <Icon name={status.icon} size={14} color={status.color} />
+             <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
 
-        {item.tourLocation && (
-          <View style={styles.locationRow}>
-            <Icon name="map-marker-outline" size={14} color={theme.colors.textSecondary} />
-            <Text style={styles.locationText}>{item.tourLocation}</Text>
+        {/* Ticket Content */}
+        <View style={styles.cardContent}>
+          <Text style={styles.tourName} numberOfLines={2}>{tourName}</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoText}>{formatDate(item.bookingDate)}</Text>
+            <View style={styles.dot} />
+            <Text style={styles.infoText}>{item.travelers} hành khách</Text>
+            <View style={styles.dot} />
+            <Icon name="credit-card-outline" size={14} color={theme.colors.textSecondary} />
+            <Text style={styles.infoText}>{item.paymentMethod}</Text>
           </View>
-        )}
 
-        <View style={styles.cardBody}>
-          <View style={styles.detailRow}>
-            <Icon name="calendar" size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.detailText}>{formatDate(item.bookingDate)}</Text>
+          {/* Dotted separator for ticket effect */}
+          <View style={styles.ticketSeparator}>
+             <View style={styles.ticketNotchLeft} />
+             <View style={styles.ticketDashedLine} />
+             <View style={styles.ticketNotchRight} />
           </View>
-          <View style={styles.detailRow}>
-            <Icon name="account-group" size={16} color={theme.colors.textSecondary} />
-            <Text style={styles.detailText}>{item.travelers} hành khách</Text>
-          </View>
-        </View>
 
-        <View style={styles.cardFooter}>
-          <Text style={styles.totalPrice}>{formatPrice(item.totalPrice)}</Text>
-          <View style={styles.actionButtons}>
+          <View style={styles.priceRow}>
+            <View>
+              <Text style={styles.priceLabel}>Tổng thanh toán</Text>
+              <Text style={styles.price}>{formatPrice(item.totalPrice)}</Text>
+            </View>
+            <View style={[styles.paymentStatusBadge, { backgroundColor: item.paymentStatus === 'PAID' ? '#10B98115' : '#F59E0B15' }]}>
+               <Text style={[styles.paymentStatusText, { color: item.paymentStatus === 'PAID' ? '#10B981' : '#F59E0B' }]}>
+                 {item.paymentStatus === 'PAID' ? 'Đã thu tiền' : 'Chưa thanh toán'}
+               </Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.actionsRow}>
             {canCancel && (
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => handleCancelBooking(item)}>
-                <Icon name="close-circle-outline" size={16} color={theme.colors.error} />
-                <Text style={styles.cancelBtnText}>Hủy</Text>
+              <TouchableOpacity style={styles.btnOutline} onPress={() => handleCancelBooking(item)}>
+                <Text style={styles.btnOutlineText}>Hủy chuyến</Text>
+              </TouchableOpacity>
+            )}
+            {item.status === 'PENDING' && item.paymentStatus === 'UNPAID' && item.paymentMethod !== 'CASH' && (
+              <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: '#F59E0B' }]} onPress={() => navigation.navigate('Payment', { bookingId: item.id })}>
+                <Text style={styles.btnPrimaryText}>Thanh toán ngay</Text>
               </TouchableOpacity>
             )}
             {isCompleted && (
-              <TouchableOpacity
-                style={styles.reviewBtn}
-                onPress={() => {
-                  // Navigate to home stack's review - workaround
-                  Alert.alert('Đánh Giá', `Vui lòng vào chi tiết tour để viết đánh giá cho "${tourName}".`);
-                }}>
-                <Icon name="star-outline" size={16} color={theme.colors.primary} />
-                <Text style={styles.reviewBtnText}>Đánh giá</Text>
+              <TouchableOpacity style={styles.btnPrimary} onPress={() => Alert.alert('Đánh Giá', `Vui lòng vào chi tiết tour để viết đánh giá cho "${tourName}".`)}>
+                <Text style={styles.btnPrimaryText}>Đánh giá</Text>
               </TouchableOpacity>
             )}
-            <Icon name="chevron-right" size={20} color={theme.colors.textLight} />
+            {!(item.status === 'PENDING' && item.paymentStatus === 'UNPAID' && item.paymentMethod !== 'CASH') && !isCompleted && !canCancel && (
+              <TouchableOpacity style={styles.btnOutline} onPress={() => navigation.navigate('Itinerary', { bookingId: item.id, tourTitle: tourName })}>
+                <Text style={styles.btnOutlineText}>Xem chi tiết</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -208,25 +166,24 @@ export default function MyTripsScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chuyến Đi Của Tôi</Text>
-        <Text style={styles.headerSubtitle}>{bookings.length} đặt chỗ</Text>
+        <Text style={styles.headerTitle}>Chuyến Đi</Text>
       </View>
 
-      {/* Filter Tabs */}
+      {/* Modern Filter Tabs */}
       <View style={styles.filterRow}>
-        {FILTER_TABS.map(tab => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.filterTab, activeFilter === tab.key && styles.filterTabActive]}
-            onPress={() => setActiveFilter(tab.key)}>
-            <Text style={[
-              styles.filterTabText,
-              activeFilter === tab.key && styles.filterTabTextActive,
-            ]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {FILTER_TABS.map(tab => {
+          const isActive = activeFilter === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              style={[styles.filterTab, isActive && styles.filterTabActive]}
+              onPress={() => setActiveFilter(tab.key)}>
+              <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {loading ? (
@@ -240,23 +197,25 @@ export default function MyTripsScreen({ navigation }: Props) {
           renderItem={renderBooking}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {
-              setRefreshing(true);
-              fetchBookings();
-            }} />
-          }
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="bag-suitcase-off-outline" size={64} color={theme.colors.textLight} />
+              <View style={styles.emptyIconBg}>
+                <Icon name="bag-suitcase-off-outline" size={64} color={theme.colors.textLight} />
+              </View>
               <Text style={styles.emptyTitle}>
-                {activeFilter === 'all' ? 'Chưa có chuyến đi nào' : 'Không có chuyến đi nào'}
+                {activeFilter === 'all' ? 'Chưa có chuyến đi nào' : 'Không có dữ liệu'}
               </Text>
               <Text style={styles.emptySubtitle}>
                 {activeFilter === 'all'
-                  ? 'Hãy khám phá và đặt tour đầu tiên!'
-                  : 'Thử chọn tab khác để xem'}
+                  ? 'Khi bạn đặt vé, chuyến đi của bạn sẽ xuất hiện tại đây.'
+                  : 'Hãy xem lại các mục khác nhé.'}
               </Text>
+              {activeFilter === 'all' && (
+                <TouchableOpacity style={styles.exploreBtn} onPress={() => navigation.navigate('HomeTab')}>
+                  <Text style={styles.exploreBtnText}>Bắt đầu tìm kiếm</Text>
+                </TouchableOpacity>
+              )}
             </View>
           }
         />
@@ -266,65 +225,57 @@ export default function MyTripsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
-  header: {
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
+  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
+  headerTitle: { ...theme.typography.h1, fontSize: 32, color: theme.colors.text },
+  
+  filterRow: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 16, gap: 10 },
+  filterTab: { paddingBottom: 6, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  filterTabActive: { borderBottomColor: theme.colors.primary },
+  filterTabText: { ...theme.typography.body, color: theme.colors.textSecondary, fontWeight: '500' },
+  filterTabTextActive: { color: theme.colors.text, fontWeight: '700' },
+
+  list: { paddingHorizontal: 20, paddingBottom: 30 },
+  
+  card: {
+    backgroundColor: '#fff', borderRadius: 20, marginBottom: 20,
+    elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10,
   },
-  headerTitle: { ...theme.typography.h1, color: theme.colors.text },
-  headerSubtitle: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, marginTop: 2 },
-  filterRow: {
-    flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 14, gap: 8,
-  },
-  filterTab: {
-    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
-    backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border,
-  },
-  filterTabActive: {
-    backgroundColor: theme.colors.primary, borderColor: theme.colors.primary,
-  },
-  filterTabText: { ...theme.typography.caption, color: theme.colors.textSecondary },
-  filterTabTextActive: { color: '#fff' },
-  list: { paddingHorizontal: 20, paddingBottom: 20 },
-  bookingCard: {
-    backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg,
-    padding: 16, marginBottom: 14, elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 6,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  tourInfo: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
-  tourName: { ...theme.typography.h3, color: theme.colors.text, flex: 1 },
-  statusBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-  },
-  statusText: { fontSize: 12, fontWeight: '600' },
-  locationRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10,
-  },
-  locationText: { ...theme.typography.bodySmall, color: theme.colors.textSecondary },
-  cardBody: { flexDirection: 'row', gap: 20, marginBottom: 12 },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  detailText: { ...theme.typography.bodySmall, color: theme.colors.textSecondary },
-  cardFooter: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: theme.colors.border, paddingTop: 12,
-  },
-  totalPrice: { fontSize: 18, fontWeight: '800', color: theme.colors.accent },
-  actionButtons: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cancelBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
-    backgroundColor: theme.colors.error + '12',
-  },
-  cancelBtnText: { ...theme.typography.caption, color: theme.colors.error },
-  reviewBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16,
-    backgroundColor: theme.colors.primary + '12',
-  },
-  reviewBtnText: { ...theme.typography.caption, color: theme.colors.primary },
+  cardImageContainer: { height: 160, width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  cardImage: { width: '100%', height: '100%' },
+  cardOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.2)' },
+  badge: { position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  badgeText: { fontSize: 13, fontWeight: '700' },
+
+  cardContent: { padding: 20 },
+  tourName: { ...theme.typography.h2, fontSize: 20, color: theme.colors.text, marginBottom: 8, lineHeight: 26 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  infoText: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, fontWeight: '500' },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: theme.colors.textLight },
+
+  ticketSeparator: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, marginHorizontal: -20, overflow: 'hidden' },
+  ticketNotchLeft: { width: 10, height: 20, backgroundColor: '#F7F8FA', borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  ticketNotchRight: { width: 10, height: 20, backgroundColor: '#F7F8FA', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  ticketDashedLine: { flex: 1, height: 1, borderRadius: 1, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed', marginHorizontal: 6 },
+
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  priceLabel: { ...theme.typography.caption, color: theme.colors.textSecondary, marginBottom: 2 },
+  price: { fontSize: 20, fontWeight: '800', color: theme.colors.accent },
+  paymentStatusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  paymentStatusText: { fontSize: 12, fontWeight: '700' },
+
+  actionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
+  btnOutline: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' },
+  btnOutlineText: { ...theme.typography.button, color: theme.colors.textSecondary },
+  btnPrimary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.primary, alignItems: 'center' },
+  btnPrimaryText: { ...theme.typography.button, color: '#fff' },
+
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { ...theme.typography.h3, color: theme.colors.textLight, marginTop: 16 },
-  emptySubtitle: { ...theme.typography.bodySmall, color: theme.colors.textLight, marginTop: 4 },
+  
+  emptyContainer: { alignItems: 'center', paddingTop: 60 },
+  emptyIconBg: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#E8F1F8', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  emptyTitle: { ...theme.typography.h2, color: theme.colors.text, marginBottom: 8 },
+  emptySubtitle: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center', paddingHorizontal: 40, marginBottom: 24 },
+  exploreBtn: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24, backgroundColor: theme.colors.text },
+  exploreBtnText: { ...theme.typography.button, color: '#fff' },
 });

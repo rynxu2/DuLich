@@ -54,6 +54,7 @@ export interface CreateBookingData {
   contactPhone?: string;
   specialRequests?: string;
   paymentMethod?: string;    // CASH | VNPAY | MOMO | ZALOPAY
+  promoCode?: string;        // Added for pricing evaluation integration
 }
 
 export const bookingsApi = {

@@ -10,61 +10,54 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Review, reviewsApi } from '../api/reviews';
-import { useAuth } from '../store/AuthContext';
+import { reviewsApi } from '../api/reviews';
+import { useAuthStore } from '../store/useAuthStore';
+import { useCreateReview } from '../hooks/useReviews';
+import { useQuery } from '@tanstack/react-query';
 import ReviewCard from '../components/ReviewCard';
-import { HomeStackParamList } from '../navigation/MainTabs';
+import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 
 type Props = {
-  navigation: NativeStackNavigationProp<HomeStackParamList, 'Review'>;
-  route: RouteProp<HomeStackParamList, 'Review'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Review'>;
+  route: RouteProp<RootStackParamList, 'Review'>;
 };
 
 export default function ReviewScreen({ navigation, route }: Props) {
   const { tourId, tourTitle } = route.params;
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingReviews, setLoadingReviews] = useState(true);
   const [submitted, setSubmitted] = useState(false);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        const res = await reviewsApi.getByTour(tourId);
-        setReviews(res.data);
-      } catch {
-        setReviews([]);
-      } finally {
-        setLoadingReviews(false);
-      }
-    };
-    fetchReviews();
-  }, [tourId]);
+  // React Query Hooks
+  const { data: reviews = [], isLoading: loadingReviews } = useQuery({
+    queryKey: ['reviews', tourId],
+    queryFn: async () => {
+      const res = await reviewsApi.getByTour(tourId);
+      return res.data;
+    },
+    enabled: !!tourId,
+  });
+
+  const { mutateAsync: createReview, isPending: loading } = useCreateReview();
 
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Lỗi', 'Vui lòng chọn số sao đánh giá');
       return;
     }
-    setLoading(true);
     try {
-      const res = await reviewsApi.create({
+      await createReview({
         tourId,
         rating,
         comment: review,
       });
-      setReviews(prev => [res.data, ...prev]);
       setSubmitted(true);
     } catch (err: any) {
       const msg = err?.response?.data?.message || 'Không thể gửi đánh giá. Vui lòng thử lại.';
       Alert.alert('Lỗi', msg);
-    } finally {
-      setLoading(false);
     }
   };
 

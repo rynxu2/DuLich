@@ -1,19 +1,18 @@
 /**
  * Favorites Screen — List of saved/favorite tours (API-powered)
  */
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TourCard from '../components/TourCard';
-import { Tour, toursApi } from '../api/tours';
-import { favoritesApi, FavoriteTour } from '../api/favorites';
 import { theme } from '../theme';
+import { useFavorites, useToggleFavorite } from '../hooks/useFavorites';
+import { Tour } from '../api/tours';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -21,47 +20,15 @@ type Props = {
 
 export default function FavoritesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [favorites, setFavorites] = useState<Tour[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const { data: favorites = [], isLoading, isRefetching, refetch } = useFavorites();
+  const { mutate: toggleFavorite } = useToggleFavorite();
 
-  const fetchFavorites = useCallback(async () => {
-    try {
-      // Get user's favorite tour IDs
-      const favRes = await favoritesApi.getMyFavorites();
-      const favItems: FavoriteTour[] = favRes.data;
-
-      if (favItems.length === 0) {
-        setFavorites([]);
-        return;
+  const handleRemoveFavorite = (tourId: number) => {
+    toggleFavorite(tourId, {
+      onError: () => {
+        Alert.alert('Lỗi', 'Không thể bỏ yêu thích. Vui lòng thử lại.');
       }
-
-      // Fetch all tours and filter by favorite IDs
-      const toursRes = await toursApi.getAll();
-      const favTourIds = new Set(favItems.map(f => f.tourId));
-      const favTours = toursRes.data.filter(t => favTourIds.has(t.id));
-      setFavorites(favTours);
-    } catch {
-      setFavorites([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchFavorites();
-    }, [fetchFavorites])
-  );
-
-  const handleRemoveFavorite = async (tourId: number) => {
-    try {
-      await favoritesApi.toggle(tourId);
-      setFavorites(prev => prev.filter(t => t.id !== tourId));
-    } catch {
-      Alert.alert('Lỗi', 'Không thể bỏ yêu thích. Vui lòng thử lại.');
-    }
+    });
   };
 
   return (
@@ -74,7 +41,7 @@ export default function FavoritesScreen({ navigation }: Props) {
         <View style={{ width: 40 }} />
       </View>
 
-      {loading ? (
+      {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
@@ -85,10 +52,7 @@ export default function FavoritesScreen({ navigation }: Props) {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => {
-              setRefreshing(true);
-              fetchFavorites();
-            }} />
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
           }
           renderItem={({ item }) => (
             <View>

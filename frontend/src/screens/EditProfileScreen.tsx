@@ -1,17 +1,17 @@
 /**
- * Edit Profile Screen — Update user information with avatar upload
+ * Premium Edit Profile Screen — Beautiful avatar uploader and clean modern inputs
  */
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image,
+  ScrollView, KeyboardAvoidingView, Platform, Image, TextInput
 } from 'react-native';
-import { TextInput, ActivityIndicator } from 'react-native-paper';
+import { ActivityIndicator } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useAuth } from '../store/AuthContext';
+import { useAuthStore } from '../store/useAuthStore';
 import { storageApi } from '../api/storage';
 import { theme } from '../theme';
 
@@ -20,8 +20,9 @@ type Props = {
 };
 
 export default function EditProfileScreen({ navigation }: Props) {
-  const { user, refreshUser, updateProfile } = useAuth();
+  const { user, restoreSession, updateProfile } = useAuthStore();
   const insets = useSafeAreaInsets();
+  
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -30,8 +31,8 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const handleSave = async () => {
-    if (!email.trim()) {
-      Alert.alert('Lỗi', 'Email không được để trống');
+    if (!email.trim() || !fullName.trim()) {
+      Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Tên và Email.');
       return;
     }
     setLoading(true);
@@ -40,204 +41,171 @@ export default function EditProfileScreen({ navigation }: Props) {
         fullName: fullName.trim(),
         phone: phone.trim(),
       });
-      if (refreshUser) {
-        await refreshUser();
-      }
-      Alert.alert('Thành công ✅', 'Thông tin cá nhân đã được cập nhật.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
+      await restoreSession();
+      Alert.alert('Thành công', 'Hồ sơ cá nhân đã được cập nhật mượt mà.', [
+        { text: 'Trở về', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Không thể cập nhật. Vui lòng thử lại.';
+      const msg = err?.response?.data?.message || 'Không thể cập nhật lúc này. Vui lòng thử lại.';
       Alert.alert('Lỗi', msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const pickAvatar = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo', maxWidth: 512, maxHeight: 512, quality: 0.8,
+      });
+      if (result.assets?.[0]) {
+        const asset = result.assets[0];
+        setUploadingAvatar(true);
+        try {
+          const file = { uri: asset.uri, name: asset.fileName || 'avatar.jpg', type: asset.type || 'image/jpeg' };
+          const uploadRes = await storageApi.upload(file, 'user', String(user?.userId || 0));
+          const signedRes = await storageApi.getSignedUrl(uploadRes.data.objectName);
+          setAvatarUrl(signedRes.data);
+        } catch {
+          Alert.alert('Lỗi tải ảnh', 'Có vấn đề khi tải ảnh lên. Các bạn thông cảm.');
+        } finally {
+          setUploadingAvatar(false);
+        }
+      }
+    } catch { /* User cancelled */ }
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
+      {/* Modern Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={theme.colors.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} activeOpacity={0.7}>
+          <Icon name="chevron-left" size={28} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.hTitle}>Chỉnh Sửa Hồ Sơ</Text>
+        <Text style={styles.headerTitle}>Thông Tin Cá Nhân</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {/* Avatar */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.contentWrapper} keyboardShouldPersistTaps="handled">
+          
+          {/* Enhanced Avatar Section */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatar}>
+            <TouchableOpacity style={styles.avatarBox} onPress={pickAvatar} activeOpacity={0.8}>
               {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImage} />
+                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
               ) : (
-                <Icon name="account" size={48} color="#fff" />
+                <View style={styles.avatarPlaceholder}>
+                  <Icon name="account" size={54} color={theme.colors.textLight} />
+                </View>
               )}
+              <View style={styles.cameraIconBadge}>
+                 <Icon name="camera-plus" size={16} color="#fff" />
+              </View>
               {uploadingAvatar && (
-                <View style={styles.avatarOverlay}>
+                <View style={styles.avatarLoadingOverlay}>
                   <ActivityIndicator color="#fff" />
                 </View>
               )}
-            </View>
-            <TouchableOpacity
-              style={styles.changeAvatarBtn}
-              disabled={uploadingAvatar}
-              onPress={async () => {
-                try {
-                  const result = await launchImageLibrary({
-                    mediaType: 'photo',
-                    maxWidth: 512,
-                    maxHeight: 512,
-                    quality: 0.8,
-                  });
-                  if (result.assets?.[0]) {
-                    const asset = result.assets[0];
-                    setUploadingAvatar(true);
-                    try {
-                      const file = {
-                        uri: asset.uri,
-                        name: asset.fileName || 'avatar.jpg',
-                        type: asset.type || 'image/jpeg',
-                      };
-                      const uploadRes = await storageApi.upload(
-                        file, 'user', String(user?.userId || 0)
-                      );
-                      const signedRes = await storageApi.getSignedUrl(uploadRes.data.objectName);
-                      setAvatarUrl(signedRes.data);
-                    } catch {
-                      Alert.alert('Lỗi', 'Không thể tải ảnh lên. Vui lòng thử lại.');
-                    } finally {
-                      setUploadingAvatar(false);
-                    }
-                  }
-                } catch {
-                  // User cancelled
-                }
-              }}>
-              <Icon name="camera" size={16} color={theme.colors.primary} />
-              <Text style={styles.changeAvatarText}>Đổi ảnh</Text>
             </TouchableOpacity>
+            <Text style={styles.usernameDisplay}>{user?.username || 'Thành viên'}</Text>
+            <Text style={styles.roleDisplay}>{user?.role || 'GUEST'} ACCOUNT</Text>
           </View>
 
-          {/* Form */}
-          <View style={styles.formSection}>
-            <Text style={styles.label}>TÊN ĐĂNG NHẬP</Text>
-            <View style={styles.readOnlyField}>
-              <Icon name="account-outline" size={20} color={theme.colors.textLight} />
-              <Text style={styles.readOnlyText}>{user?.username || ''}</Text>
-              <Icon name="lock-outline" size={16} color={theme.colors.textLight} />
+          {/* Form Content */}
+          <View style={styles.formContainer}>
+            <Text style={styles.sectionHeading}>Hồ Sơ Của Bạn</Text>
+            
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIconBg}><Icon name="card-account-details-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Họ và tên</Text>
+                <TextInput
+                  value={fullName} onChangeText={setFullName}
+                  style={styles.textInput} placeholder="Nhập tên của bạn" placeholderTextColor={theme.colors.textLight}
+                />
+              </View>
             </View>
 
-            <TextInput
-              label="Họ và tên"
-              value={fullName}
-              onChangeText={setFullName}
-              mode="outlined"
-              left={<TextInput.Icon icon="account-edit-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.border}
-              activeOutlineColor={theme.colors.primary}
-            />
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIconBg}><Icon name="email-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Email liên hệ (Cố định)</Text>
+                <TextInput
+                  value={email} onChangeText={setEmail}
+                  style={[styles.textInput, { color: theme.colors.textSecondary }]}
+                  editable={false} keyboardType="email-address" autoCapitalize="none"
+                />
+              </View>
+            </View>
 
-            <TextInput
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              mode="outlined"
-              left={<TextInput.Icon icon="email-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.border}
-              activeOutlineColor={theme.colors.primary}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <TextInput
-              label="Số điện thoại"
-              value={phone}
-              onChangeText={setPhone}
-              mode="outlined"
-              left={<TextInput.Icon icon="phone-outline" />}
-              style={styles.input}
-              outlineColor={theme.colors.border}
-              activeOutlineColor={theme.colors.primary}
-              keyboardType="phone-pad"
-            />
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIconBg}><Icon name="phone-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Số điện thoại</Text>
+                <TextInput
+                  value={phone} onChangeText={setPhone}
+                  style={styles.textInput} placeholder="Nhập SĐT..." placeholderTextColor={theme.colors.textLight}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
           </View>
-
-          {/* Save Button */}
-          <TouchableOpacity
-            style={[styles.saveButton, loading && styles.buttonDisabled]}
-            onPress={handleSave}
-            disabled={loading}
-            activeOpacity={0.8}>
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Icon name="content-save-outline" size={20} color="#fff" />
-                <Text style={styles.saveText}>Lưu Thay Đổi</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Floating Bottom Bar for Action */}
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom || 24 }]}>
+        <TouchableOpacity
+          style={[styles.saveBtn, loading && styles.saveBtnDisabled]}
+          onPress={handleSave} disabled={loading} activeOpacity={0.8}
+        >
+          {loading ? (
+             <ActivityIndicator color="#fff" />
+          ) : (
+             <>
+               <Text style={styles.saveBtnText}>Lưu Thay Đổi</Text>
+               <Icon name="check" size={20} color="#fff" />
+             </>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.background },
+  container: { flex: 1, backgroundColor: '#F7F8FA' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface,
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#F7F8FA',
   },
   backBtn: { padding: 8 },
-  hTitle: { ...theme.typography.h3, color: theme.colors.text },
-  content: { paddingHorizontal: 24, paddingVertical: 24, paddingBottom: 40 },
-  avatarSection: { alignItems: 'center', marginBottom: 28 },
-  avatar: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: theme.colors.primary, justifyContent: 'center', alignItems: 'center',
-    marginBottom: 12, overflow: 'hidden',
-  },
-  avatarImage: {
-    width: 96, height: 96, borderRadius: 48,
-  },
-  avatarOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center', alignItems: 'center',
-    borderRadius: 48,
-  },
-  changeAvatarBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: theme.colors.primary + '15',
-  },
-  changeAvatarText: { ...theme.typography.caption, color: theme.colors.primary },
-  formSection: { marginBottom: 24 },
-  label: {
-    ...theme.typography.caption, color: theme.colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8,
-  },
-  readOnlyField: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: theme.colors.surfaceVariant, borderRadius: theme.borderRadius.md,
-    paddingHorizontal: 14, paddingVertical: 14, marginBottom: 16,
-  },
-  readOnlyText: { ...theme.typography.body, color: theme.colors.textSecondary, flex: 1 },
-  input: { marginBottom: 14, backgroundColor: '#fff' },
-  saveButton: {
-    backgroundColor: theme.colors.primary, borderRadius: theme.borderRadius.md,
-    paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, elevation: 3,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  saveText: { ...theme.typography.button, color: '#fff' },
+  headerTitle: { ...theme.typography.h2, fontSize: 20, color: theme.colors.text },
+  
+  contentWrapper: { paddingBottom: 100 },
+  
+  avatarSection: { alignItems: 'center', marginVertical: 32 },
+  avatarBox: { width: 120, height: 120, borderRadius: 60, elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
+  avatarImg: { width: 120, height: 120, borderRadius: 60 },
+  avatarPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: theme.colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' },
+  cameraIconBadge: { position: 'absolute', bottom: 0, right: 4, backgroundColor: theme.colors.primary, padding: 8, borderRadius: 20, borderWidth: 3, borderColor: '#F7F8FA' },
+  avatarLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
+  
+  usernameDisplay: { ...theme.typography.h2, fontSize: 22, color: theme.colors.text, marginTop: 16 },
+  roleDisplay: { ...theme.typography.caption, fontSize: 12, color: theme.colors.primary, marginTop: 4, letterSpacing: 1, paddingHorizontal: 10, paddingVertical: 2, backgroundColor: theme.colors.primary + '15', borderRadius: 10 },
+
+  formContainer: { paddingHorizontal: 20 },
+  sectionHeading: { ...theme.typography.h3, color: theme.colors.textSecondary, marginBottom: 16, marginLeft: 4 },
+  
+  inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 20, marginBottom: 14, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+  inputIconBg: { width: 44, height: 44, borderRadius: 22, backgroundColor: theme.colors.primary + '10', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  inputBody: { flex: 1 },
+  inputLabel: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 2, fontWeight: '500' },
+  textInput: { fontSize: 16, color: theme.colors.text, fontWeight: '600', padding: 0, margin: 0 },
+
+  bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 16, borderTopLeftRadius: 32, borderTopRightRadius: 32, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  saveBtn: { backgroundColor: theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 24 },
+  saveBtnDisabled: { opacity: 0.6 },
+  saveBtnText: { ...theme.typography.button, color: '#fff', fontSize: 16 },
 });

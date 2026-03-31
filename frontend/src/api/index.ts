@@ -39,22 +39,10 @@ export { favoritesApi } from './favorites';
 export type { FavoriteTour } from './favorites';
 
 // ── Advanced Services ──
-export { analyticsApi } from './analytics';
-export type { RevenueData, KPIData } from './analytics';
-
-export { guidesApi } from './guides';
-export type { GuideSchedule } from './guides';
-
 export { realtimeApi } from './realtime';
 export type { ChatMessage, TrackingUpdate } from './realtime';
 
-export { adminApi } from './admin';
-export type { SystemStatus } from './admin';
-
 // ── New Business Services ──
-export { expensesApi } from './expenses';
-export type { Expense, ExpenseCategory, ExpenseStatus, CreateExpenseData } from './expenses';
-
 export { pricingApi } from './pricing';
 export type { PricingRule, PromoCode, PricePreviewParams, PricePreviewResponse } from './pricing';
 

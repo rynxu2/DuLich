@@ -13,24 +13,26 @@ import React from 'react';
 import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
-import { AuthProvider } from './src/store/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import AppNavigator from './src/navigation/AppNavigator';
+
+const queryClient = new QueryClient();
 
 export default function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
     <SafeAreaProvider>
-      <PaperProvider>
-        <AuthProvider>
+      <QueryClientProvider client={queryClient}>
+        <PaperProvider>
           <StatusBar
             barStyle={isDarkMode ? 'light-content' : 'dark-content'}
             backgroundColor="transparent"
             translucent
           />
           <AppNavigator />
-        </AuthProvider>
-      </PaperProvider>
+        </PaperProvider>
+      </QueryClientProvider>
     </SafeAreaProvider>
   );
 }

@@ -57,12 +57,17 @@ Dự án sử dụng kiến trúc Microservices, bao gồm các service sau:
 2. Khởi động Metro Bundler (vẫn ở thư mục `frontend`):
    *(Sử dụng port 8085 do app được cấu hình mặc định ở cổng này)*
    ```bash
-   npx react-native start --port 8085
+   npx react-native start --port 8100
    ```
 3. Ở tab Terminal thứ 2, chạy ứng dụng lên máy ảo (Emulator) hoặc điện thoại thật:
    ```bash
    cd frontend
-   npx react-native run-android --port 8085
+   npx react-native run-android --port 8100
+   ```
+
+4. Note:
+   ```bash
+   emulator -avd Medium_Phone
    ```
 
 ---

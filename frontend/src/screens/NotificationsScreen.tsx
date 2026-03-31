@@ -5,8 +5,12 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
-import { notificationsApi, Notification } from '../api/notifications';
+import {
+  useNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+  useDeleteNotification,
+} from '../hooks/useNotifications';
 import { theme } from '../theme';
 
 const TYPE_ICONS: Record<string, { icon: string; color: string }> = {
@@ -37,50 +41,14 @@ function formatTime(dateStr: string) {
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const fetchNotifications = useCallback(async () => {
-    try {
-      const res = await notificationsApi.getAll();
-      setNotifications(res.data);
-    } catch {
-      setNotifications([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // React Query Hooks
+  const { data: notifications = [], isLoading: loading } = useNotifications();
+  const { mutateAsync: markAsRead } = useMarkNotificationRead();
+  const { mutateAsync: markAllAsRead } = useMarkAllNotificationsRead();
+  const { mutateAsync: deleteNotification } = useDeleteNotification();
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchNotifications();
-    }, [fetchNotifications])
-  );
-
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAsRead = useCallback(async (id: number) => {
-    try {
-      await notificationsApi.markAsRead(id);
-      setNotifications(prev =>
-        prev.map(n => n.id === id ? { ...n, isRead: true } : n)
-      );
-    } catch { /* ignore */ }
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    try {
-      await notificationsApi.markAllAsRead();
-      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-    } catch { /* ignore */ }
-  }, []);
-
-  const deleteNotification = useCallback(async (id: number) => {
-    try {
-      await notificationsApi.delete(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    } catch { /* ignore */ }
-  }, []);
+  const unreadCount = notifications.filter((n: any) => !n.isRead).length;
 
   if (loading) {
     return (
@@ -102,7 +70,7 @@ export default function NotificationsScreen() {
           )}
         </View>
         {unreadCount > 0 && (
-          <TouchableOpacity style={styles.markAllBtn} onPress={markAllAsRead}>
+          <TouchableOpacity style={styles.markAllBtn} onPress={() => markAllAsRead()}>
             <Icon name="check-all" size={18} color={theme.colors.primary} />
             <Text style={styles.markAllText}>Đọc tất cả</Text>
           </TouchableOpacity>
