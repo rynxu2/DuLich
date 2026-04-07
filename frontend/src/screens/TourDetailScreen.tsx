@@ -8,6 +8,7 @@ import {
   TouchableOpacity, ActivityIndicator, Dimensions,
   FlatList, NativeScrollEvent, NativeSyntheticEvent,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -123,7 +124,10 @@ export default function TourDetailScreen({ navigation, route }: Props) {
             renderItem={({ item }) => (
               <View>
                 <Image source={{ uri: item.uri }} style={styles.heroImage} resizeMode="cover" />
-                <View style={styles.heroGradient} />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.5)']}
+                  style={styles.heroGradient}
+                />
               </View>
             )}
           />
@@ -330,30 +334,30 @@ export default function TourDetailScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.background },
   
   imageContainer: { width, height: SLIDER_HEIGHT, position: 'relative' },
   heroImage: { width, height: SLIDER_HEIGHT },
-  heroGradient: { position: 'absolute', bottom: 0, width, height: 160, backgroundColor: 'rgba(0,0,0,0.4)' },
+  heroGradient: { position: 'absolute', bottom: 0, width, height: 180 },
   paginationBadge: { position: 'absolute', bottom: 40, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   paginationText: { color: '#fff', fontSize: 13, fontWeight: '600', letterSpacing: 1 },
   
-  glassBtn: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', alignItems: 'center' },
+  glassBtn: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center' },
 
   infoPanel: {
-    backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    marginTop: -32, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100,
+    backgroundColor: theme.colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    marginTop: -28, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100,
   },
   topInfoRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   badgeWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, gap: 4 },
   badgeText: { fontSize: 13, fontWeight: '700', color: '#D97706' },
   
-  title: { ...theme.typography.h1, fontSize: 28, color: theme.colors.text, marginBottom: 20, lineHeight: 36 },
+  title: { ...theme.typography.h1, fontSize: 24, color: theme.colors.text, marginBottom: 20, lineHeight: 32 },
 
   metricsContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24, gap: 10 },
-  metricItem: { flex: 1, alignItems: 'center', backgroundColor: '#F9FAFB', paddingVertical: 14, borderRadius: 16 },
-  metricIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  metricItem: { flex: 1, alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, paddingVertical: 14, borderRadius: 14 },
+  metricIconBg: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primaryMuted, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   metricLabel: { fontSize: 12, color: theme.colors.textSecondary, marginBottom: 4 },
   metricValue: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
 
@@ -376,7 +380,7 @@ const styles = StyleSheet.create({
   timelineLine: { position: 'absolute', top: 14, bottom: -20, width: 2, backgroundColor: theme.colors.surfaceVariant, zIndex: 1 },
   timelineContent: { flex: 1, paddingBottom: 4 },
   timelineDayTitle: { fontSize: 16, fontWeight: '700', color: theme.colors.text, marginBottom: 8, marginTop: -2 },
-  timelineActivities: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 12 },
+  timelineActivities: { backgroundColor: theme.colors.surfaceVariant, padding: 12, borderRadius: 12 },
   timelineActText: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 22, marginBottom: 6 },
 
   departuresContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -390,16 +394,16 @@ const styles = StyleSheet.create({
   depSlots: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
   depTextSelected: { color: '#fff' },
 
-  emptyReviews: { padding: 20, alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 16 },
+  emptyReviews: { padding: 20, alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14 },
   emptyReviewsText: { color: theme.colors.textSecondary, fontStyle: 'italic' },
   viewAllReviewsBtn: { alignItems: 'center', paddingVertical: 14, backgroundColor: theme.colors.primary + '10', borderRadius: 16, marginTop: 10 },
   viewAllReviewsText: { color: theme.colors.primary, fontWeight: '700' },
 
-  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: theme.colors.border, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: theme.colors.surface, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: theme.colors.borderLight, ...theme.shadows.lg },
   bottomPriceInfo: { flex: 1 },
   bottomOriginalPrice: { fontSize: 13, color: theme.colors.textLight, textDecorationLine: 'line-through', marginBottom: 2 },
-  bottomPriceValue: { fontSize: 24, fontWeight: '800', color: theme.colors.accent },
+  bottomPriceValue: { ...theme.typography.price, fontSize: 24, color: theme.colors.accent },
   bottomPriceUnit: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 4 },
-  payButton: { backgroundColor: theme.colors.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 24 },
+  payButton: { backgroundColor: theme.colors.accent, paddingHorizontal: 32, paddingVertical: 16, borderRadius: theme.borderRadius.full },
   payButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

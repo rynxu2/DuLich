@@ -175,10 +175,10 @@ export default function EditProfileScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#F7F8FA',
+    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.colors.background,
   },
   backBtn: { padding: 8 },
   headerTitle: { ...theme.typography.h2, fontSize: 20, color: theme.colors.text },
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   avatarBox: { width: 120, height: 120, borderRadius: 60, elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, backgroundColor: '#fff' },
   avatarImg: { width: 120, height: 120, borderRadius: 60 },
   avatarPlaceholder: { width: 120, height: 120, borderRadius: 60, backgroundColor: theme.colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' },
-  cameraIconBadge: { position: 'absolute', bottom: 0, right: 4, backgroundColor: theme.colors.primary, padding: 8, borderRadius: 20, borderWidth: 3, borderColor: '#F7F8FA' },
+  cameraIconBadge: { position: 'absolute', bottom: 0, right: 4, backgroundColor: theme.colors.primary, padding: 8, borderRadius: 20, borderWidth: 3, borderColor: theme.colors.background },
   avatarLoadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 60, justifyContent: 'center', alignItems: 'center' },
   
   usernameDisplay: { ...theme.typography.h2, fontSize: 22, color: theme.colors.text, marginTop: 16 },

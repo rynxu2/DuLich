@@ -1,9 +1,8 @@
 /**
- * Main Tabs — Bottom tab navigation for authenticated users
- * 
- * Tabs: Home | Search | My Trips | Favorites | Profile
+ * MainTabs — Clean bottom tab bar with labels (Traveloka/Airbnb style)
  */
 import React from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import HomeScreen from '../screens/HomeScreen';
@@ -23,65 +22,73 @@ export type MainTabParamList = {
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
+const TAB_CONFIG: Record<string, { icon: string; iconActive: string; label: string }> = {
+  HomeTab:      { icon: 'compass-outline',       iconActive: 'compass',       label: 'Khám phá' },
+  SearchTab:    { icon: 'magnify',               iconActive: 'magnify',       label: 'Tìm kiếm' },
+  MyTripsTab:   { icon: 'bag-suitcase-outline',  iconActive: 'bag-suitcase',  label: 'Chuyến đi' },
+  FavoritesTab: { icon: 'heart-outline',         iconActive: 'heart',         label: 'Yêu thích' },
+  ProfileTab:   { icon: 'account-outline',       iconActive: 'account',       label: 'Cá nhân' },
+};
+
 export default function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }) => {
-          const icons: Record<string, string> = {
-            HomeTab: 'compass-outline',
-            SearchTab: 'magnify',
-            MyTripsTab: 'bag-suitcase-outline',
-            FavoritesTab: 'heart-outline',
-            ProfileTab: 'account-outline',
-          };
-          return <Icon name={icons[route.name] || 'circle'} size={size} color={color} />;
+        tabBarIcon: ({ focused, size }) => {
+          const cfg = TAB_CONFIG[route.name];
+          return (
+            <Icon
+              name={focused ? cfg.iconActive : cfg.icon}
+              size={focused ? 25 : 23}
+              color={focused ? theme.colors.primary : theme.colors.textLight}
+            />
+          );
         },
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textLight,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopColor: theme.colors.border,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 4,
-          elevation: 10,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 4,
+        tabBarLabel: ({ focused }) => {
+          const cfg = TAB_CONFIG[route.name];
+          return (
+            <Text style={[
+              styles.tabLabel,
+              focused && styles.tabLabelActive,
+            ]}>
+              {cfg.label}
+            </Text>
+          );
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-        },
+        tabBarStyle: styles.tabBar,
+        tabBarItemStyle: styles.tabItem,
       })}>
-      <Tab.Screen
-        name="HomeTab"
-        component={HomeScreen}
-        options={{ tabBarLabel: 'Khám Phá' }}
-      />
-      <Tab.Screen
-        name="SearchTab"
-        component={SearchScreen}
-        options={{ tabBarLabel: 'Tìm Kiếm' }}
-      />
-      <Tab.Screen
-        name="MyTripsTab"
-        component={MyTripsScreen}
-        options={{ tabBarLabel: 'Chuyến Đi' }}
-      />
-      <Tab.Screen
-        name="FavoritesTab"
-        component={FavoritesScreen}
-        options={{ tabBarLabel: 'Yêu Thích' }}
-      />
-      <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
-        options={{ tabBarLabel: 'Cá Nhân' }}
-      />
+      <Tab.Screen name="HomeTab" component={HomeScreen} />
+      <Tab.Screen name="SearchTab" component={SearchScreen} />
+      <Tab.Screen name="MyTripsTab" component={MyTripsScreen} />
+      <Tab.Screen name="FavoritesTab" component={FavoritesScreen} />
+      <Tab.Screen name="ProfileTab" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    height: Platform.OS === 'ios' ? 84 : 62,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 6,
+    paddingTop: 6,
+    elevation: 0,
+  },
+  tabItem: {
+    gap: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: theme.colors.textLight,
+    marginTop: 1,
+  },
+  tabLabelActive: {
+    color: theme.colors.primary,
+    fontWeight: '600',
+  },
+});

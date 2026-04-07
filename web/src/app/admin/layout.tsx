@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Map, CalendarCheck, Users, Receipt,
-  DollarSign, BarChart3, LogOut, Menu, X, Plane
+  DollarSign, BarChart3, LogOut, Menu, X, Plane, Star, Bell
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -14,9 +14,11 @@ const NAV_ITEMS = [
   { href: '/admin/tours', label: 'Tours', icon: Map },
   { href: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },
   { href: '/admin/users', label: 'Users', icon: Users },
+  { href: '/admin/reviews', label: 'Reviews', icon: Star },
   { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
   { href: '/admin/pricing', label: 'Pricing', icon: DollarSign },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/notifications', label: 'Notifications', icon: Bell },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

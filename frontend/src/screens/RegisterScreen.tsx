@@ -138,16 +138,16 @@ const styles = StyleSheet.create({
   keyboardView: { flex: 1, justifyContent: 'flex-end' },
   scrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
 
-  formCard: { backgroundColor: '#fff', borderTopLeftRadius: 40, borderTopRightRadius: 40, paddingHorizontal: 30, paddingTop: 16, paddingBottom: 50, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.1, shadowRadius: 20 },
-  headerIndicator: { width: 40, height: 5, backgroundColor: '#E5E7EB', borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
-  formTitle: { fontSize: 26, fontWeight: '800', color: theme.colors.text, marginBottom: 6 },
+  formCard: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 28, paddingTop: 16, paddingBottom: 50, ...theme.shadows.lg },
+  headerIndicator: { width: 40, height: 5, backgroundColor: theme.colors.border, borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
+  formTitle: { fontSize: 24, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   formSubtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 24 },
 
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 16, paddingHorizontal: 16, height: 54, marginBottom: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14, paddingHorizontal: 14, height: 52, marginBottom: 12, borderWidth: 1, borderColor: theme.colors.border },
   inputIcon: { marginRight: 12 },
   textInput: { flex: 1, fontSize: 15, color: theme.colors.text, fontWeight: '500' },
 
-  registerBtn: { backgroundColor: theme.colors.primary, borderRadius: 16, height: 56, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, marginTop: 16 },
+  registerBtn: { backgroundColor: theme.colors.primary, borderRadius: 14, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
   btnDisabled: { opacity: 0.7 },
   registerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 

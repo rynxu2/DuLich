@@ -69,20 +69,23 @@ apiClient.interceptors.response.use(
 
 export default apiClient;
 
-// ── Service APIs ──
+// ── Auth ──
 export const authApi = {
   login: (data: { username: string; password: string }) => apiClient.post('/auth/login', data),
   register: (data: { username: string; email: string; password: string }) => apiClient.post('/auth/register', data),
 };
 
+// ── Tours ──
 export const toursApi = {
   list: (params?: Record<string, any>) => apiClient.get('/tours', { params }),
   getById: (id: number) => apiClient.get(`/tours/${id}`),
   create: (data: any) => apiClient.post('/tours', data),
   update: (id: number, data: any) => apiClient.put(`/tours/${id}`, data),
   delete: (id: number) => apiClient.delete(`/tours/${id}`),
+  getAvailability: (depId: number) => apiClient.get(`/tours/departures/${depId}/availability`),
 };
 
+// ── Bookings ──
 export const bookingsApi = {
   list: () => apiClient.get('/bookings'),
   getByUser: (userId: number) => apiClient.get(`/bookings/user/${userId}`),
@@ -90,20 +93,48 @@ export const bookingsApi = {
   cancel: (id: number) => apiClient.put(`/bookings/${id}/cancel`),
 };
 
+// ── Users ──
 export const usersApi = {
   list: () => apiClient.get('/users'),
-  getProfile: (userId: number) => apiClient.get(`/users/${userId}`),
-  updateProfile: (userId: number, data: any) => apiClient.put(`/users/${userId}`, data),
+  getProfile: (userId: number) => apiClient.get(`/users/${userId}/profile`),
+  updateProfile: (userId: number, data: any) => apiClient.put(`/users/${userId}/profile`, data),
 };
 
+// ── Payments ──
+export const paymentsApi = {
+  getById: (id: number) => apiClient.get(`/payments/${id}`),
+  getByBooking: (bookingId: number) => apiClient.get(`/payments/booking/${bookingId}`),
+  getByUser: (userId: number) => apiClient.get(`/payments/user/${userId}`),
+};
+
+// ── Reviews ──
+export const reviewsApi = {
+  getByTour: (tourId: number) => apiClient.get(`/reviews/tour/${tourId}`),
+  getByUser: (userId: number) => apiClient.get(`/reviews/user/${userId}`),
+  getAll: () => apiClient.get('/reviews'),
+  delete: (id: number) => apiClient.delete(`/reviews/${id}`),
+};
+
+// ── Notifications ──
+export const notificationsApi = {
+  list: () => apiClient.get('/notifications'),
+  getUnreadCount: () => apiClient.get('/notifications/unread-count'),
+  markAsRead: (id: number) => apiClient.put(`/notifications/${id}/read`),
+  markAllAsRead: () => apiClient.put('/notifications/read-all'),
+  delete: (id: number) => apiClient.delete(`/notifications/${id}`),
+};
+
+// ── Expenses ──
 export const expensesApi = {
   list: () => apiClient.get('/expenses'),
   getPending: () => apiClient.get('/expenses/pending'),
   getByTour: (tourId: number) => apiClient.get(`/expenses/tour/${tourId}`),
+  getById: (id: number) => apiClient.get(`/expenses/${id}`),
   approve: (id: number) => apiClient.put(`/expenses/${id}/approve`),
   reject: (id: number, reason?: string) => apiClient.put(`/expenses/${id}/reject`, { reason }),
 };
 
+// ── Pricing ──
 export const pricingApi = {
   listRules: () => apiClient.get('/pricing/rules'),
   createRule: (data: any) => apiClient.post('/pricing/rules', data),
@@ -114,13 +145,16 @@ export const pricingApi = {
   deletePromo: (id: number) => apiClient.delete(`/pricing/promos/${id}`),
 };
 
+// ── Analytics ──
 export const analyticsApi = {
-  getRevenue: (params?: Record<string, any>) => apiClient.get('/analytics/revenue', { params }),
-  getCosts: (params?: Record<string, any>) => apiClient.get('/analytics/costs', { params }),
-  getProfit: (params?: Record<string, any>) => apiClient.get('/analytics/profit', { params }),
-  health: () => apiClient.get('/analytics/health'),
+  getRevenue: () => apiClient.get('/analytics/revenue'),
+  getProfitSummary: () => apiClient.get('/analytics/profit/summary'),
+  getTourProfit: (tourId: number) => apiClient.get(`/analytics/profit/tour/${tourId}`),
+  getAllProfits: () => apiClient.get('/analytics/profit/all'),
+  getCostBreakdown: (tourId: number) => apiClient.get(`/analytics/cost-breakdown/tour/${tourId}`),
 };
 
+// ── Storage ──
 export const storageApi = {
   upload: (file: File, entityType: string, entityId: string) => {
     const formData = new FormData();

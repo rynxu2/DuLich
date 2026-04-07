@@ -4,28 +4,37 @@ import { useEffect, useState } from 'react';
 import { analyticsApi, bookingsApi } from '@/lib/api';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, PieChart as PieIcon } from 'lucide-react';
 
 const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#10b981', '#ec4899'];
+const STATUS_LABELS: Record<string, string> = {
+  CONFIRMED: 'Đã xác nhận', PENDING: 'Chờ xử lý', CANCELLED: 'Đã hủy', COMPLETED: 'Hoàn thành',
+};
 
 export default function AnalyticsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
+  const [profits, setProfits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await bookingsApi.list();
-        setBookings(Array.isArray(data) ? data : []);
+        const [b, p] = await Promise.allSettled([
+          bookingsApi.list(),
+          analyticsApi.getAllProfits(),
+        ]);
+        if (b.status === 'fulfilled') setBookings(Array.isArray(b.value.data) ? b.value.data : []);
+        if (p.status === 'fulfilled') setProfits(Array.isArray(p.value.data) ? p.value.data : []);
       } catch {} finally { setLoading(false); }
     })();
   }, []);
 
-  // Calculate revenue by month
+  // Revenue by month
   const revenueByMonth = bookings.reduce((acc: Record<string, number>, b: any) => {
-    const month = b.bookingDate?.substring(0, 7) || 'N/A';
+    const date = b.bookingDate || b.createdAt || '';
+    const month = date.substring(0, 7) || 'N/A';
     acc[month] = (acc[month] || 0) + (b.totalPrice || 0);
     return acc;
   }, {});
@@ -39,8 +48,9 @@ export default function AnalyticsPage() {
     acc[b.status] = (acc[b.status] || 0) + 1;
     return acc;
   }, {});
-
-  const statusChart = Object.entries(statusDist).map(([name, value]) => ({ name, value }));
+  const statusChart = Object.entries(statusDist).map(([name, value]) => ({
+    name: STATUS_LABELS[name] || name, value,
+  }));
 
   // Payment method distribution
   const paymentDist = bookings.reduce((acc: Record<string, number>, b: any) => {
@@ -48,7 +58,6 @@ export default function AnalyticsPage() {
     acc[method] = (acc[method] || 0) + 1;
     return acc;
   }, {});
-
   const paymentChart = Object.entries(paymentDist).map(([name, value]) => ({ name, value }));
 
   const totalRevenue = bookings.reduce((s: number, b: any) => s + (b.totalPrice || 0), 0);
@@ -84,54 +93,100 @@ export default function AnalyticsPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Revenue Chart */}
         <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-slate-300 mb-4">Doanh Thu Theo Tháng (triệu đ)</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={revenueChart}>
-              <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
-              <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="url(#revGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          {revenueChart.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={revenueChart}>
+                <defs>
+                  <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
+                <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="url(#revGrad)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center text-slate-500">{loading ? 'Đang tải...' : 'Chưa có dữ liệu'}</div>
+          )}
         </div>
 
-        {/* Status Pie */}
         <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6">
-          <h3 className="text-sm font-semibold text-slate-300 mb-4">Phân Bố Trạng Thái</h3>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-              <Pie data={statusChart} cx="50%" cy="50%" innerRadius={60} outerRadius={100}
-                paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                {statusChart.map((_, idx) => (
-                  <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <h3 className="text-sm font-semibold text-slate-300 mb-4">Phân Bố Trạng Thái Booking</h3>
+          {statusChart.length > 0 ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={statusChart} cx="50%" cy="50%" innerRadius={60} outerRadius={100}
+                  paddingAngle={3} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  {statusChart.map((_, idx) => (
+                    <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[280px] flex items-center justify-center text-slate-500">{loading ? 'Đang tải...' : 'Chưa có dữ liệu'}</div>
+          )}
         </div>
 
-        {/* Payment Method Bar */}
-        <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6 lg:col-span-2">
+        <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6">
           <h3 className="text-sm font-semibold text-slate-300 mb-4">Phương Thức Thanh Toán</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={paymentChart}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
-              <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
-              <Bar dataKey="value" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {paymentChart.length > 0 ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={paymentChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                <XAxis dataKey="name" tick={{ fill: '#64748b', fontSize: 12 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                <Tooltip contentStyle={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, color: '#fff' }} />
+                <Bar dataKey="value" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[250px] flex items-center justify-center text-slate-500">{loading ? 'Đang tải...' : 'Chưa có dữ liệu'}</div>
+          )}
+        </div>
+
+        {/* Profit By Tour Table */}
+        <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-6">
+          <h3 className="text-sm font-semibold text-slate-300 mb-4">Lợi Nhuận Theo Tour</h3>
+          {profits.length > 0 ? (
+            <div className="overflow-y-auto max-h-[250px]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-slate-500 border-b border-white/5 sticky top-0 bg-slate-900/90">
+                    <th className="pb-2 font-medium">Tour</th>
+                    <th className="pb-2 font-medium text-right">Doanh thu</th>
+                    <th className="pb-2 font-medium text-right">Chi phí</th>
+                    <th className="pb-2 font-medium text-right">Lợi nhuận</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {profits.map((p: any, i: number) => (
+                    <tr key={i} className="border-b border-white/5">
+                      <td className="py-2.5 text-white text-xs">{p.tourTitle || `Tour #${p.tourId}`}</td>
+                      <td className="py-2.5 text-right text-slate-400 text-xs">{fmt(p.totalRevenue || 0)}đ</td>
+                      <td className="py-2.5 text-right text-red-400 text-xs">{fmt(p.totalCost || 0)}đ</td>
+                      <td className="py-2.5 text-right text-xs font-medium">
+                        <span className={(p.profit || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                          {fmt(p.profit || 0)}đ
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="h-[250px] flex items-center justify-center text-slate-500">
+              {loading ? 'Đang tải...' : 'Chưa có dữ liệu lợi nhuận'}
+            </div>
+          )}
         </div>
       </div>
     </div>

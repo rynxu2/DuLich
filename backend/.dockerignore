@@ -1,0 +1,33 @@
+# ── Docker Ignore — Global ──
+# Prevents sending unnecessary files to Docker daemon
+# Reduces build context from ~500MB to ~50MB per service
+
+.git
+.gitignore
+*.md
+LICENSE
+docker-compose*.yml
+.env
+k8s/
+database/
+test_api.py
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Build artifacts (rebuilt inside container)
+**/target/
+**/build/
+**/out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

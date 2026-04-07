@@ -225,7 +225,7 @@ export default function MyTripsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F8FA' },
+  container: { flex: 1, backgroundColor: theme.colors.background },
   header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 },
   headerTitle: { ...theme.typography.h1, fontSize: 32, color: theme.colors.text },
   
@@ -238,10 +238,10 @@ const styles = StyleSheet.create({
   list: { paddingHorizontal: 20, paddingBottom: 30 },
   
   card: {
-    backgroundColor: '#fff', borderRadius: 20, marginBottom: 20,
-    elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.1, shadowRadius: 10,
+    backgroundColor: theme.colors.surface, borderRadius: 16, marginBottom: 16,
+    ...theme.shadows.md,
   },
-  cardImageContainer: { height: 160, width: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20, overflow: 'hidden' },
+  cardImageContainer: { height: 150, width: '100%', borderTopLeftRadius: 16, borderTopRightRadius: 16, overflow: 'hidden' },
   cardImage: { width: '100%', height: '100%' },
   cardOverlay: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.2)' },
   badge: { position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
@@ -254,8 +254,8 @@ const styles = StyleSheet.create({
   dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: theme.colors.textLight },
 
   ticketSeparator: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, marginHorizontal: -20, overflow: 'hidden' },
-  ticketNotchLeft: { width: 10, height: 20, backgroundColor: '#F7F8FA', borderTopRightRadius: 10, borderBottomRightRadius: 10 },
-  ticketNotchRight: { width: 10, height: 20, backgroundColor: '#F7F8FA', borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+  ticketNotchLeft: { width: 10, height: 20, backgroundColor: theme.colors.background, borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+  ticketNotchRight: { width: 10, height: 20, backgroundColor: theme.colors.background, borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
   ticketDashedLine: { flex: 1, height: 1, borderRadius: 1, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed', marginHorizontal: 6 },
 
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
@@ -265,15 +265,15 @@ const styles = StyleSheet.create({
   paymentStatusText: { fontSize: 12, fontWeight: '700' },
 
   actionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  btnOutline: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' },
-  btnOutlineText: { ...theme.typography.button, color: theme.colors.textSecondary },
-  btnPrimary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.colors.primary, alignItems: 'center' },
-  btnPrimaryText: { ...theme.typography.button, color: '#fff' },
+  btnOutline: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.borderRadius.full, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' },
+  btnOutlineText: { ...theme.typography.button, color: theme.colors.textSecondary, fontSize: 13 },
+  btnPrimary: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: theme.borderRadius.full, backgroundColor: theme.colors.primary, alignItems: 'center' },
+  btnPrimaryText: { ...theme.typography.button, color: '#fff', fontSize: 13 },
 
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   emptyContainer: { alignItems: 'center', paddingTop: 60 },
-  emptyIconBg: { width: 100, height: 100, borderRadius: 50, backgroundColor: '#E8F1F8', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  emptyIconBg: { width: 80, height: 80, borderRadius: 40, backgroundColor: theme.colors.primaryMuted, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   emptyTitle: { ...theme.typography.h2, color: theme.colors.text, marginBottom: 8 },
   emptySubtitle: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center', paddingHorizontal: 40, marginBottom: 24 },
   exploreBtn: { paddingHorizontal: 24, paddingVertical: 14, borderRadius: 24, backgroundColor: theme.colors.text },

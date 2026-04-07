@@ -52,11 +52,11 @@ export default function LoginScreen({ navigation }: Props) {
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
               
               <View style={styles.headerArea}>
-                <View style={styles.iconBg}>
-                  <Icon name="airplane-takeoff" size={40} color={theme.colors.primary} />
+                 <View style={styles.iconBg}>
+                  <Icon name="compass-outline" size={36} color={theme.colors.primary} />
                 </View>
-                <Text style={styles.brandTitle}>Khám Phá</Text>
-                <Text style={styles.brandSubtitle}>Mở ra những hành trình vô tận</Text>
+                <Text style={styles.brandTitle}>DuLịch</Text>
+                <Text style={styles.brandSubtitle}>Khám phá Việt Nam tuyệt đẹp</Text>
               </View>
 
               <View style={styles.formCard}>
@@ -130,27 +130,27 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
   
   headerArea: { paddingHorizontal: 30, marginBottom: 24, paddingBottom: 10 },
-  iconBg: { width: 72, height: 72, borderRadius: 24, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginBottom: 16, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
-  brandTitle: { fontSize: 38, fontWeight: '900', color: '#fff', letterSpacing: 1, marginBottom: 4, textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  iconBg: { width: 64, height: 64, borderRadius: 20, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginBottom: 14, ...theme.shadows.md },
+  brandTitle: { fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: -0.5, marginBottom: 4, textShadowColor: 'rgba(0,0,0,0.3)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   brandSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.9)', textShadowColor: 'rgba(0,0,0,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
 
-  formCard: { backgroundColor: '#fff', borderTopLeftRadius: 40, borderTopRightRadius: 40, paddingHorizontal: 30, paddingTop: 40, paddingBottom: 50, elevation: 20, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.1, shadowRadius: 20 },
-  formTitle: { fontSize: 26, fontWeight: '800', color: theme.colors.text, marginBottom: 6 },
+  formCard: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 28, paddingTop: 36, paddingBottom: 50, ...theme.shadows.lg },
+  formTitle: { fontSize: 24, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
   formSubtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 32 },
 
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 16, paddingHorizontal: 16, height: 56, marginBottom: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14, paddingHorizontal: 14, height: 52, marginBottom: 14, borderWidth: 1, borderColor: theme.colors.border },
   inputIcon: { marginRight: 12 },
   textInput: { flex: 1, fontSize: 16, color: theme.colors.text, fontWeight: '500' },
 
   forgotPassBtn: { alignSelf: 'flex-end', marginBottom: 24 },
   forgotPassText: { fontSize: 14, fontWeight: '600', color: theme.colors.primary },
 
-  loginBtn: { backgroundColor: theme.colors.primary, borderRadius: 16, height: 56, justifyContent: 'center', alignItems: 'center', elevation: 4, shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  loginBtn: { backgroundColor: theme.colors.primary, borderRadius: 14, height: 52, justifyContent: 'center', alignItems: 'center' },
   btnDisabled: { opacity: 0.7 },
   loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
 
   dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: theme.colors.border },
   dividerText: { marginHorizontal: 16, color: theme.colors.textLight, fontSize: 14, fontWeight: '500' },
 
   registerLink: { alignItems: 'center' },

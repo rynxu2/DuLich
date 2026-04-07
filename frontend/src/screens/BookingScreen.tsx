@@ -342,20 +342,20 @@ export default function BookingScreen({ navigation, route }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: theme.colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: theme.colors.surface },
   backBtn: { padding: 4 },
   headerTitle: { ...theme.typography.h2, fontSize: 18, color: theme.colors.text },
   
   content: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120 },
   
-  tourTicket: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, marginBottom: 24 },
-  ticketIconBg: { width: 48, height: 48, borderRadius: 16, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
+  tourTicket: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: theme.colors.surface, borderRadius: 16, padding: 16, ...theme.shadows.sm, marginBottom: 24 },
+  ticketIconBg: { width: 48, height: 48, borderRadius: 16, backgroundColor: theme.colors.primaryMuted, justifyContent: 'center', alignItems: 'center' },
   ticketTitle: { ...theme.typography.h3, fontSize: 16, color: theme.colors.text, marginBottom: 4 },
   ticketPrice: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, fontWeight: '600' },
 
   sectionHeader: { ...theme.typography.h3, fontSize: 16, color: theme.colors.text, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
-  card: { backgroundColor: '#fff', borderRadius: 20, padding: 16, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, marginBottom: 24 },
+  card: { backgroundColor: theme.colors.surface, borderRadius: 16, padding: 16, ...theme.shadows.sm, marginBottom: 24 },
   
   inputGroup: { paddingVertical: 4 },
   inputLabel: { ...theme.typography.caption, color: theme.colors.textSecondary, marginBottom: 6 },
@@ -368,12 +368,12 @@ const styles = StyleSheet.create({
   stepperLabel: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
   stepperSub: { fontSize: 12, color: theme.colors.textSecondary },
   stepperControls: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  stepperBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' },
+  stepperBtn: { width: 36, height: 36, borderRadius: 12, backgroundColor: theme.colors.surfaceVariant, justifyContent: 'center', alignItems: 'center' },
   stepperBtnDisabled: { opacity: 0.5 },
   stepperValue: { fontSize: 18, fontWeight: '800', width: 24, textAlign: 'center' },
 
   paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 24 },
-  payCard: { width: '48%', backgroundColor: '#fff', borderRadius: 16, padding: 16, borderWidth: 1.5, borderColor: theme.colors.border, elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2 },
+  payCard: { width: '48%', backgroundColor: theme.colors.surface, borderRadius: 14, padding: 16, borderWidth: 1.5, borderColor: theme.colors.border, ...theme.shadows.sm },
   payCardActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '0A' },
   payCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   payIconBg: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
@@ -397,10 +397,10 @@ const styles = StyleSheet.create({
   policyFooterRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 20 },
   policyFooterText: { fontSize: 13, color: theme.colors.textSecondary, letterSpacing: 0.5 },
 
-  bottomCheckoutBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, borderTopLeftRadius: 32, borderTopRightRadius: 32, elevation: 15, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.05, shadowRadius: 10 },
+  bottomCheckoutBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: theme.colors.surface, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.colors.border, ...theme.shadows.lg },
   checkoutTotalLabel: { fontSize: 13, color: theme.colors.textSecondary, marginBottom: 2 },
   checkoutTotalValue: { fontSize: 22, fontWeight: '900', color: theme.colors.text },
-  checkoutBtn: { backgroundColor: theme.colors.primary, paddingHorizontal: 32, paddingVertical: 16, borderRadius: 24 },
+  checkoutBtn: { backgroundColor: theme.colors.accent, paddingHorizontal: 32, paddingVertical: 16, borderRadius: theme.borderRadius.full },
   saveBtnDisabled: { opacity: 0.7 },
   checkoutBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 
