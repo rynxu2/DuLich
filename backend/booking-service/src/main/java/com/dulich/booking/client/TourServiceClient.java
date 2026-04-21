@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
  * Uses Eureka service discovery (name = "tour-service") to resolve
  * the URL dynamically. No hard-coded URLs needed.
  */
-@FeignClient(name = "tour-service")
+@FeignClient(name = "tour-service", contextId = "tourServiceClient")
 public interface TourServiceClient {
 
     @GetMapping("/tours/{id}")

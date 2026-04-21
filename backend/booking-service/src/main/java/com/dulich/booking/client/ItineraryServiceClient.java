@@ -12,7 +12,7 @@ import java.util.List;
  *
  * Used to auto-create itinerary entries when a booking is confirmed.
  */
-@FeignClient(name = "itinerary-service")
+@FeignClient(name = "tour-service", contextId = "itineraryServiceClient")
 public interface ItineraryServiceClient {
 
     @PostMapping("/itinerary/bulk")

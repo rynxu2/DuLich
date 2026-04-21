@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequiredArgsConstructor
 public class AuthController {
@@ -23,6 +25,15 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/auth/refresh")
+    public ResponseEntity<AuthResponse> refreshToken(@RequestBody Map<String, String> body) {
+        String refreshToken = body.get("refreshToken");
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new RuntimeException("Refresh token is required");
+        }
+        return ResponseEntity.ok(authService.refreshToken(refreshToken));
+    }
+
     @GetMapping("/users/me")
     public ResponseEntity<UserResponse> getMyProfile(@RequestHeader("X-User-Id") Long userId) {
         return ResponseEntity.ok(authService.getUserById(userId));
@@ -32,6 +43,6 @@ public class AuthController {
     public ResponseEntity<UserResponse> updateMyProfile(
             @RequestHeader("X-User-Id") Long userId,
             @RequestBody UpdateProfileRequest request) {
-        return ResponseEntity.ok(authService.updateProfile(userId, request));
+        return ResponseEntity.ok(authService.updateUser(userId, request));
     }
 }

@@ -1,20 +1,19 @@
 # ===========================================================
-# Docker Compose — Travel Booking Microservices Platform
+# Docker Compose — Travel Booking Platform (CONSOLIDATED)
 # ===========================================================
 # OPTIMIZED for 8GB RAM Local Development
 #
-# Architecture: 14 Microservices + RabbitMQ + Redis + PostgreSQL + MinIO
+# Architecture: 4 Business Services + 2 Infra + 4 Infrastructure
 #
-# ── Profiles ──
-#   infra     → PostgreSQL, RabbitMQ, Redis, MinIO (required)
-#   core      → Eureka, Gateway, Auth, User, Tour, Booking, Payment
-#   advanced  → Review, Itinerary, Notification, Guide, Analytics,
-#               Realtime, Admin, Expense, Pricing, Storage
+# ── Consolidated Services ──
+#   identity-service   (8081) ← auth + user
+#   tour-service       (8082) ← tour + guide + review + itinerary + pricing
+#   booking-service    (8083) ← booking + payment + expense + realtime
+#   platform-service   (8084) ← notification + analytics + admin + storage
 #
 # ── Commands ──
 #   Dev (core only):  docker compose --profile infra --profile core up -d --build
 #   Full stack:       docker compose --profile infra --profile core --profile advanced up -d --build
-#   Monitor:          docker stats --no-stream
 #   Stop:             docker compose --profile infra --profile core --profile advanced down
 #   Reset:            docker compose --profile infra --profile core --profile advanced down -v
 # ===========================================================
@@ -31,7 +30,6 @@ x-java-service: &java-service
       max-file: "3"
 
 x-java-env: &java-env
-  # DB credentials (shared user) — URL overridden per-service
   SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
   SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
   SPRING_RABBITMQ_HOST: rabbitmq
@@ -40,76 +38,23 @@ x-java-env: &java-env
   SPRING_DATA_REDIS_HOST: redis
   SPRING_DATA_REDIS_PASSWORD: dulich_secret
   EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-  # ── JVM Tuning for Containers ──
   JAVA_TOOL_OPTIONS: >-
     -XX:+UseContainerSupport
     -XX:MaxRAMPercentage=75.0
     -XX:+UseG1GC
     -XX:+ExitOnOutOfMemoryError
     -Djava.security.egd=file:/dev/./urandom
-  # ── Spring Optimizations ──
   SPRING_JPA_OPEN_IN_VIEW: "false"
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
   SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "2"
   SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT: "20000"
-
-x-small-java-env: &small-java-env
-  <<: *java-env
-  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
-  SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE: "1"
 
 services:
   # ═══════════════════════════════════════════════
   #  INFRASTRUCTURE — Profile: infra
   # ═══════════════════════════════════════════════
 
-  # ─── PostgreSQL (Tuned for Dev) ───
-  postgres:
-    image: postgres:16-alpine
-    container_name: postgres
-    profiles: ["infra"]
-    ports:
-      - "5432:5432"
-    environment:
-      POSTGRES_USER: dulich
-      POSTGRES_PASSWORD: dulich_secret
-      POSTGRES_MULTIPLE_DATABASES: auth_db,user_db,tour_db,booking_db,payment_db,review_db,itinerary_db,notification_db,expense_db,analytics_db,pricing_db
-    command: >
-      postgres
-      -c max_connections=50
-      -c shared_buffers=64MB
-      -c work_mem=4MB
-      -c effective_cache_size=128MB
-      -c maintenance_work_mem=32MB
-      -c wal_buffers=4MB
-      -c random_page_cost=1.1
-      -c log_min_duration_statement=1000
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./database/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh
-    networks:
-      - travel-network
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.50"
-        reservations:
-          memory: 64M
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dulich"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-
-  # ─── RabbitMQ (Slim) ───
+  # ─── RabbitMQ ───
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: rabbitmq
@@ -145,7 +90,7 @@ services:
         max-size: "3m"
         max-file: "2"
 
-  # ─── Redis (Minimal) ───
+  # ─── Redis ───
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -235,9 +180,6 @@ services:
       timeout: 10s
       retries: 10
       start_period: 45s
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   # ─── API Gateway ───
   api-gateway:
@@ -261,442 +203,121 @@ services:
         condition: service_healthy
 
   # ═══════════════════════════════════════════════
-  #  CORE SERVICES — Profile: core
+  #  CONSOLIDATED BUSINESS SERVICES — Profile: core
   # ═══════════════════════════════════════════════
 
-  # ─── Auth Service ───
-  auth-service:
-    build: ./auth-service
-    container_name: auth-service
+  # ─── Identity Service (auth + user) ───
+  identity-service:
+    build: ./identity-service
+    container_name: identity-service
     profiles: ["core"]
     <<: *java-service
     ports:
       - "8081:8081"
     environment:
       <<: *java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/identity_db?sslmode=require
     deploy:
       resources:
         limits:
-          memory: 224M
-          cpus: "0.30"
+          memory: 256M
+          cpus: "0.35"
         reservations:
           memory: 128M
     depends_on:
       eureka-server:
-        condition: service_healthy
-      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
 
-  # ─── User Service ───
-  user-service:
-    build: ./user-service
-    container_name: user-service
-    profiles: ["core"]
-    <<: *java-service
-    ports:
-      - "8082:8082"
-    environment:
-      <<: *java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
-    deploy:
-      resources:
-        limits:
-          memory: 224M
-          cpus: "0.30"
-        reservations:
-          memory: 128M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ─── Tour Service ───
+  # ─── Tour Service (tour + guide + review + itinerary + pricing) ───
   tour-service:
     build: ./tour-service
     container_name: tour-service
     profiles: ["core"]
     <<: *java-service
     ports:
-      - "8088:8088"
+      - "8082:8082"
     environment:
       <<: *java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tour_db
-      # Elasticsearch disabled in dev — use PostgreSQL ILIKE
-      # SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/tour_db?sslmode=require
     deploy:
       resources:
         limits:
-          memory: 224M
-          cpus: "0.30"
+          memory: 320M
+          cpus: "0.40"
         reservations:
-          memory: 128M
+          memory: 160M
     depends_on:
       eureka-server:
         condition: service_healthy
-      postgres:
-        condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # ─── Booking Service ───
+  # ─── Booking Service (booking + payment + expense + realtime) ───
   booking-service:
     build: ./booking-service
     container_name: booking-service
     profiles: ["core"]
     <<: *java-service
     ports:
-      - "8089:8089"
+      - "8083:8083"
     environment:
       <<: *java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/booking_db?sslmode=require
     deploy:
       resources:
         limits:
-          memory: 224M
-          cpus: "0.30"
+          memory: 320M
+          cpus: "0.40"
         reservations:
-          memory: 128M
+          memory: 160M
     depends_on:
       eureka-server:
-        condition: service_healthy
-      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
 
-  # ─── Payment Service ───
-  payment-service:
-    build: ./payment-service
-    container_name: payment-service
-    profiles: ["core"]
-    <<: *java-service
-    ports:
-      - "8085:8085"
-    environment:
-      <<: *java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ═══════════════════════════════════════════════
-  #  ADVANCED SERVICES — Profile: advanced
-  # ═══════════════════════════════════════════════
-
-  # ─── Review Service ───
-  review-service:
-    build: ./review-service
-    container_name: review-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8086:8086"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/review_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-
-  # ─── Itinerary Service ───
-  itinerary-service:
-    build: ./itinerary-service
-    container_name: itinerary-service
+  # ─── Platform Service (notification + analytics + admin + storage) ───
+  platform-service:
+    build: ./platform-service
+    container_name: platform-service
     profiles: ["advanced"]
     <<: *java-service
     ports:
       - "8084:8084"
     environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/itinerary_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-
-  # ─── Notification Service ───
-  notification-service:
-    build: ./notification-service
-    container_name: notification-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8091:8091"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ─── Guide Service ───
-  guide-service:
-    build: ./guide-service
-    container_name: guide-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8092:8092"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tour_db
-    deploy:
-      resources:
-        limits:
-          memory: 176M
-          cpus: "0.20"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-
-  # ─── Analytics Service ───
-  analytics-service:
-    build: ./analytics-service
-    container_name: analytics-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8093:8093"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analytics_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ─── Realtime Service ───
-  realtime-service:
-    build: ./realtime-service
-    container_name: realtime-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8094:8094"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-
-  # ─── Admin Service ───
-  admin-service:
-    build: ./admin-service
-    container_name: admin-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8095:8095"
-    environment:
-      <<: *small-java-env
-    deploy:
-      resources:
-        limits:
-          memory: 176M
-          cpus: "0.20"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ─── Expense Service ───
-  expense-service:
-    build: ./expense-service
-    container_name: expense-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8096:8096"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/expense_db
-    deploy:
-      resources:
-        limits:
-          memory: 176M
-          cpus: "0.20"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-
-  # ─── Pricing Service ───
-  pricing-service:
-    build: ./pricing-service
-    container_name: pricing-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8097:8097"
-    environment:
-      <<: *small-java-env
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pricing_db
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-          cpus: "0.25"
-        reservations:
-          memory: 96M
-    depends_on:
-      eureka-server:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  # ─── Storage Service ───
-  storage-service:
-    build: ./storage-service
-    container_name: storage-service
-    profiles: ["advanced"]
-    <<: *java-service
-    ports:
-      - "8098:8098"
-    environment:
+      <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/platform_db?sslmode=require
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JAVA_TOOL_OPTIONS: >-
-        -XX:+UseContainerSupport
-        -XX:MaxRAMPercentage=75.0
-        -XX:+UseSerialGC
-        -Djava.security.egd=file:/dev/./urandom
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-dulich}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-dulich_secret}
+      MINIO_BUCKET_NAME: dulich-files
     deploy:
       resources:
         limits:
-          memory: 176M
-          cpus: "0.20"
+          memory: 320M
+          cpus: "0.40"
         reservations:
-          memory: 96M
+          memory: 160M
     depends_on:
       eureka-server:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       minio:
-        condition: service_started
-
-  # ═══════════════════════════════════════════════
-  #  OPTIONAL — Elasticsearch (Full-text search)
-  #  Only enable when explicitly needed
-  # ═══════════════════════════════════════════════
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
-    container_name: elasticsearch
-    profiles: ["search"]
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
-    volumes:
-      - es_data:/usr/share/elasticsearch/data
-    networks:
-      - travel-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.50"
-        reservations:
-          memory: 256M
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-    restart: unless-stopped
+        condition: service_healthy
 
 # ═══════════════════════════════════════════════
 #  VOLUMES & NETWORKS
 # ═══════════════════════════════════════════════
 volumes:
-  postgres_data:
   rabbitmq_data:
   redis_data:
-  es_data:
   minio_data:
 
 networks:

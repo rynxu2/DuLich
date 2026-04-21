@@ -11,38 +11,45 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.Map;
 
-/**
- * JWT Utility — Token generation and validation
- * 
- * Uses HMAC-SHA256 for signing. The secret key must match
- * the one configured in the API Gateway for token validation.
- * 
- * Token contains: subject (userId), role claim, expiration (24h)
- */
 @Component
 public class JwtUtil {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
+    @Value("${jwt.access-token-expiration:86400000}")
+    private long accessTokenExpiration;
+
+    @Value("${jwt.refresh-token-expiration:604800000}")
+    private long refreshTokenExpiration;
 
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(Decoders.BASE64.decode(jwtSecret));
     }
 
-    public String generateToken(Long userId, String username, String role) {
+    public String generateAccessToken(Long userId, String username, String role) {
         return Jwts.builder()
             .subject(String.valueOf(userId))
-            .claims(Map.of(
-                "username", username,
-                "role", role
-            ))
+            .claims(Map.of("username", username, "role", role))
             .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + jwtExpiration))
+            .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration))
             .signWith(getSigningKey())
             .compact();
+    }
+
+    public String generateRefreshToken(Long userId) {
+        return Jwts.builder()
+            .subject(String.valueOf(userId))
+            .claims(Map.of("type", "refresh"))
+            .issuedAt(new Date())
+            .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiration))
+            .signWith(getSigningKey())
+            .compact();
+    }
+
+    /** @deprecated Use generateAccessToken instead */
+    public String generateToken(Long userId, String username, String role) {
+        return generateAccessToken(userId, username, role);
     }
 
     public Claims extractClaims(String token) {

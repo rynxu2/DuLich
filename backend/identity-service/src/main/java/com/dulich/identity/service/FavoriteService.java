@@ -19,6 +19,24 @@ public class FavoriteService {
         return favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    public Favorite addFavorite(Long userId, Long tourId) {
+        if (favoriteRepository.existsByUserIdAndTourId(userId, tourId)) {
+            return favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream().filter(f -> f.getTourId().equals(tourId)).findFirst()
+                .orElseThrow();
+        }
+        Favorite fav = Favorite.builder()
+            .userId(userId)
+            .tourId(tourId)
+            .build();
+        return favoriteRepository.save(fav);
+    }
+
+    @Transactional
+    public void removeFavorite(Long userId, Long tourId) {
+        favoriteRepository.deleteByUserIdAndTourId(userId, tourId);
+    }
+
     @Transactional
     public Map<String, Object> toggleFavorite(Long userId, Long tourId) {
         if (favoriteRepository.existsByUserIdAndTourId(userId, tourId)) {

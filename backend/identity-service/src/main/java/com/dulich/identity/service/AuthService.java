@@ -1,23 +1,33 @@
 package com.dulich.identity.service;
 
 import com.dulich.identity.dto.*;
+import com.dulich.identity.entity.RefreshToken;
 import com.dulich.identity.entity.User;
+import com.dulich.identity.entity.UserProfile;
+import com.dulich.identity.repository.RefreshTokenRepository;
+import com.dulich.identity.repository.UserProfileRepository;
 import com.dulich.identity.repository.UserRepository;
 import com.dulich.identity.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final UserProfileRepository userProfileRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("Username already exists");
@@ -30,18 +40,33 @@ public class AuthService {
             .username(request.getUsername())
             .email(request.getEmail())
             .password(passwordEncoder.encode(request.getPassword()))
+            .fullName(request.getFullName())
+            .phone(request.getPhone())
             .role("USER")
             .build();
-
         user = userRepository.save(user);
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+
+        // Directly create profile (no RabbitMQ needed — same service)
+        UserProfile profile = UserProfile.builder()
+            .userId(user.getId())
+            .fullName(request.getFullName())
+            .phone(request.getPhone())
+            .build();
+        userProfileRepository.save(profile);
+
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+        saveRefreshToken(user.getId(), refreshToken);
+
+        log.info("User registered: {} (ID: {})", user.getUsername(), user.getId());
 
         return AuthResponse.builder()
             .userId(user.getId())
-            .token(token)
             .username(user.getUsername())
             .email(user.getEmail())
             .role(user.getRole())
+            .accessToken(accessToken)
+            .refreshToken(refreshToken)
             .build();
     }
 
@@ -53,41 +78,79 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        if (!user.getIsActive()) {
+            throw new RuntimeException("Account is deactivated");
+        }
+
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+        saveRefreshToken(user.getId(), refreshToken);
 
         return AuthResponse.builder()
             .userId(user.getId())
-            .token(token)
             .username(user.getUsername())
             .email(user.getEmail())
             .role(user.getRole())
+            .accessToken(accessToken)
+            .refreshToken(refreshToken)
+            .build();
+    }
+
+    @Transactional
+    public AuthResponse refreshToken(String token) {
+        RefreshToken stored = refreshTokenRepository.findByToken(token)
+            .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+
+        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            refreshTokenRepository.delete(stored);
+            throw new RuntimeException("Refresh token expired");
+        }
+
+        User user = userRepository.findById(stored.getUserId())
+            .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String newRefreshToken = jwtUtil.generateRefreshToken(user.getId());
+
+        // Rotate refresh token
+        refreshTokenRepository.delete(stored);
+        saveRefreshToken(user.getId(), newRefreshToken);
+
+        return AuthResponse.builder()
+            .userId(user.getId())
+            .username(user.getUsername())
+            .email(user.getEmail())
+            .role(user.getRole())
+            .accessToken(newAccessToken)
+            .refreshToken(newRefreshToken)
             .build();
     }
 
     public UserResponse getUserById(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
-
         return toUserResponse(user);
     }
 
-    public UserResponse updateProfile(Long userId, UpdateProfileRequest request) {
+    public UserResponse updateUser(Long userId, UpdateProfileRequest request) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (request.getFullName() != null) {
-            user.setFullName(request.getFullName());
-        }
-        if (request.getEmail() != null && !request.getEmail().isBlank()) {
-            user.setEmail(request.getEmail());
-        }
-        if (request.getPhone() != null) {
-            user.setPhone(request.getPhone());
-        }
+        if (request.getFullName() != null) user.setFullName(request.getFullName());
+        if (request.getEmail() != null && !request.getEmail().isBlank()) user.setEmail(request.getEmail());
+        if (request.getPhone() != null) user.setPhone(request.getPhone());
         user.setUpdatedAt(LocalDateTime.now());
-
         user = userRepository.save(user);
         return toUserResponse(user);
+    }
+
+    private void saveRefreshToken(Long userId, String token) {
+        RefreshToken rt = RefreshToken.builder()
+            .userId(userId)
+            .token(token)
+            .expiresAt(LocalDateTime.now().plusDays(7))
+            .build();
+        refreshTokenRepository.save(rt);
     }
 
     private UserResponse toUserResponse(User user) {
