@@ -1,18 +1,13 @@
 package com.dulich.user.service;
 
 import com.dulich.user.config.RabbitMQConfig;
-import com.dulich.user.entity.Favorite;
 import com.dulich.user.entity.UserProfile;
 import com.dulich.user.event.UserRegisteredEvent;
-import com.dulich.user.repository.FavoriteRepository;
 import com.dulich.user.repository.UserProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +15,6 @@ import java.util.List;
 public class UserService {
 
     private final UserProfileRepository profileRepository;
-    private final FavoriteRepository favoriteRepository;
 
     /**
      * Listen for user.registered event → auto-create profile.
@@ -57,20 +51,6 @@ public class UserService {
         return profileRepository.save(profile);
     }
 
-    // ── Favorites ──
-
-    public List<Favorite> getFavorites(Long userId) {
-        return favoriteRepository.findByUserId(userId);
-    }
-
-    public Favorite addFavorite(Long userId, Long tourId) {
-        return favoriteRepository.findByUserIdAndTourId(userId, tourId)
-                .orElseGet(() -> favoriteRepository.save(
-                        Favorite.builder().userId(userId).tourId(tourId).build()));
-    }
-
-    @Transactional
-    public void removeFavorite(Long userId, Long tourId) {
-        favoriteRepository.deleteByUserIdAndTourId(userId, tourId);
-    }
+    // Favorites are now managed exclusively by identity-service.
+    // See: identity-service/controller/FavoriteController.java
 }

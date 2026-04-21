@@ -24,3 +24,5 @@ CREATE TABLE IF NOT EXISTS notifications (
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id  ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read     ON notifications(user_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created  ON notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_ref      ON notifications(reference_type, reference_id);
+

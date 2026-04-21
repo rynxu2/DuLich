@@ -1,5 +1,5 @@
 /**
- * MainTabs — Clean bottom tab bar with labels (Traveloka/Airbnb style)
+ * MainTabs — Premium bottom tab bar with active dot indicator
  */
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
@@ -35,14 +35,19 @@ export default function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused, size }) => {
+        tabBarIcon: ({ focused }) => {
           const cfg = TAB_CONFIG[route.name];
           return (
-            <Icon
-              name={focused ? cfg.iconActive : cfg.icon}
-              size={focused ? 25 : 23}
-              color={focused ? theme.colors.primary : theme.colors.textLight}
-            />
+            <View style={styles.iconWrap}>
+              {focused && <View style={styles.activeIndicator} />}
+              <View style={[styles.iconCircle, focused && styles.iconCircleActive]}>
+                <Icon
+                  name={focused ? cfg.iconActive : cfg.icon}
+                  size={22}
+                  color={focused ? theme.colors.primary : theme.colors.textLight}
+                />
+              </View>
+            </View>
           );
         },
         tabBarLabel: ({ focused }) => {
@@ -70,16 +75,38 @@ export default function MainTabs() {
 
 const styles = StyleSheet.create({
   tabBar: {
+    ...theme.shadows.xl,
     backgroundColor: theme.colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.border,
-    height: Platform.OS === 'ios' ? 84 : 62,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 6,
-    paddingTop: 6,
-    elevation: 0,
+    borderTopWidth: 0,
+    height: Platform.OS === 'ios' ? 88 : 68,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 8,
+    paddingTop: 8,
   },
   tabItem: {
     gap: 2,
+  },
+  iconWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  activeIndicator: {
+    position: 'absolute',
+    top: -8,
+    width: 20,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: theme.colors.primary,
+  },
+  iconCircle: {
+    width: 36,
+    height: 32,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircleActive: {
+    backgroundColor: theme.colors.primaryMuted,
   },
   tabLabel: {
     fontSize: 10,
@@ -89,6 +116,6 @@ const styles = StyleSheet.create({
   },
   tabLabelActive: {
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

@@ -1,5 +1,5 @@
 /**
- * Premium Register Screen — Matches the Login Screen aesthetic
+ * RegisterScreen — Premium registration matching Login aesthetic
  */
 import React, { useState } from 'react';
 import {
@@ -7,6 +7,7 @@ import {
   Platform, ScrollView, Alert, Dimensions, ImageBackground, TextInput
 } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../store/useAuthStore';
@@ -17,7 +18,7 @@ type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
-const BG_IMAGE = "https://images.unsplash.com/photo-1541604907993-e4dcd69ec23f?q=80&w=1200&auto=format&fit=crop";
+const BG_IMAGE = "https://images.unsplash.com/photo-1528127269322-539801943592?q=80&w=1200&auto=format&fit=crop";
 
 export default function RegisterScreen({ navigation }: Props) {
   const { register } = useAuthStore();
@@ -27,6 +28,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleRegister = async () => {
     if (!username.trim() || !email.trim() || !password.trim()) {
@@ -51,64 +53,82 @@ export default function RegisterScreen({ navigation }: Props) {
     }
   };
 
+  const renderInput = (
+    iconName: string,
+    placeholder: string,
+    value: string,
+    onChangeText: (t: string) => void,
+    fieldKey: string,
+    options?: { secure?: boolean; keyboard?: any; autoCapitalize?: any },
+  ) => (
+    <View style={[styles.inputWrapper, focusedField === fieldKey && styles.inputFocused]}>
+      <View style={styles.inputIconWrap}>
+        <Icon name={iconName} size={20} color={focusedField === fieldKey ? theme.colors.primary : theme.colors.textSecondary} />
+      </View>
+      <TextInput
+        style={styles.textInput}
+        placeholder={placeholder}
+        placeholderTextColor={theme.colors.textLight}
+        value={value}
+        onChangeText={onChangeText}
+        secureTextEntry={options?.secure && !showPassword}
+        keyboardType={options?.keyboard}
+        autoCapitalize={options?.autoCapitalize || 'none'}
+        onFocus={() => setFocusedField(fieldKey)}
+        onBlur={() => setFocusedField(null)}
+      />
+      {options?.secure && (
+        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
+          <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ImageBackground source={{ uri: BG_IMAGE }} style={styles.bgImage} resizeMode="cover">
-        <View style={styles.overlay}>
-          <View style={styles.topNav}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-               <Icon name="chevron-left" size={32} color="#fff" />
-            </TouchableOpacity>
-          </View>
-          
+        <LinearGradient
+          colors={['rgba(7,89,133,0.4)', 'rgba(7,89,133,0.2)', 'rgba(0,0,0,0.5)']}
+          locations={[0, 0.3, 1]}
+          style={styles.overlay}
+        >
+          {/* Back Button */}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { top: Platform.OS === 'ios' ? 54 : 44 }]}>
+            <Icon name="chevron-left" size={28} color="#fff" />
+          </TouchableOpacity>
+
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboardView}>
             <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
               <View style={styles.formCard}>
-                <View style={styles.headerIndicator} />
+                <View style={styles.grabHandle} />
                 <Text style={styles.formTitle}>Tạo Tài Khoản</Text>
-                <Text style={styles.formSubtitle}>Bắt đầu hành trình của bạn ngay hôm nay</Text>
+                <Text style={styles.formSubtitle}>Bắt đầu hành trình khám phá của bạn</Text>
 
-                <View style={styles.inputWrapper}>
-                  <Icon name="account-outline" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput} placeholder="Tên đăng nhập" placeholderTextColor={theme.colors.textLight}
-                    value={username} onChangeText={setUsername} autoCapitalize="none"
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Icon name="email-outline" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput} placeholder="Địa chỉ Email" placeholderTextColor={theme.colors.textLight}
-                    value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address"
-                  />
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Icon name="lock-outline" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput} placeholder="Mật khẩu" placeholderTextColor={theme.colors.textLight}
-                    value={password} onChangeText={setPassword} secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 4 }}>
-                    <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textSecondary} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.inputWrapper}>
-                  <Icon name="lock-check-outline" size={20} color={theme.colors.textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.textInput} placeholder="Xác nhận mật khẩu" placeholderTextColor={theme.colors.textLight}
-                    value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry={!showPassword}
-                  />
-                </View>
+                {renderInput('account-outline', 'Tên đăng nhập', username, setUsername, 'username')}
+                {renderInput('email-outline', 'Địa chỉ Email', email, setEmail, 'email', { keyboard: 'email-address' })}
+                {renderInput('lock-outline', 'Mật khẩu', password, setPassword, 'password', { secure: true })}
+                {renderInput('lock-check-outline', 'Xác nhận mật khẩu', confirmPassword, setConfirmPassword, 'confirm', { secure: true })}
 
                 <TouchableOpacity
                   style={[styles.registerBtn, loading && styles.btnDisabled]}
-                  onPress={handleRegister} disabled={loading} activeOpacity={0.8}
+                  onPress={handleRegister} disabled={loading} activeOpacity={0.85}
                 >
-                  {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.registerBtnText}>Đăng Ký</Text>}
+                  <LinearGradient
+                    colors={[theme.colors.primaryDark, theme.colors.primary]}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={styles.registerBtnGrad}
+                  >
+                    {loading ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Text style={styles.registerBtnText}>Đăng Ký</Text>
+                        <Icon name="arrow-right" size={20} color="#fff" />
+                      </>
+                    )}
+                  </LinearGradient>
                 </TouchableOpacity>
 
                 <View style={styles.loginLinkWrap}>
@@ -118,12 +138,11 @@ export default function RegisterScreen({ navigation }: Props) {
                     </Text>
                   </TouchableOpacity>
                 </View>
-
               </View>
 
             </ScrollView>
           </KeyboardAvoidingView>
-        </View>
+        </LinearGradient>
       </ImageBackground>
     </View>
   );
@@ -132,27 +151,59 @@ export default function RegisterScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   bgImage: { width: '100%', height: '100%' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' },
-  topNav: { position: 'absolute', top: 50, left: 10, zIndex: 10 },
-  backBtn: { padding: 10, borderRadius: 20, backgroundColor: 'rgba(0,0,0,0.2)' },
+  overlay: { flex: 1, justifyContent: 'flex-end' },
+  backBtn: {
+    position: 'absolute', left: 16, zIndex: 10,
+    width: 40, height: 40, borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+  },
   keyboardView: { flex: 1, justifyContent: 'flex-end' },
   scrollContent: { flexGrow: 1, justifyContent: 'flex-end' },
 
-  formCard: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, paddingHorizontal: 28, paddingTop: 16, paddingBottom: 50, ...theme.shadows.lg },
-  headerIndicator: { width: 40, height: 5, backgroundColor: theme.colors.border, borderRadius: 3, alignSelf: 'center', marginBottom: 24 },
-  formTitle: { fontSize: 24, fontWeight: '700', color: theme.colors.text, marginBottom: 4 },
-  formSubtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 24 },
+  formCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 28, paddingTop: 16, paddingBottom: 50,
+    ...theme.shadows.xl,
+  },
+  grabHandle: {
+    width: 36, height: 4, borderRadius: 2,
+    backgroundColor: theme.colors.border, alignSelf: 'center', marginBottom: 24,
+  },
+  formTitle: {
+    fontSize: 26, fontWeight: '800', color: theme.colors.text, marginBottom: 4, letterSpacing: -0.5,
+  },
+  formSubtitle: { fontSize: 14, color: theme.colors.textSecondary, marginBottom: 28 },
 
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14, paddingHorizontal: 14, height: 52, marginBottom: 12, borderWidth: 1, borderColor: theme.colors.border },
-  inputIcon: { marginRight: 12 },
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: theme.colors.surfaceVariant,
+    borderRadius: 16, paddingHorizontal: 4, height: 54, marginBottom: 12,
+    borderWidth: 1.5, borderColor: theme.colors.border,
+  },
+  inputFocused: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryMuted,
+  },
+  inputIconWrap: {
+    width: 44, height: 44, borderRadius: 12,
+    justifyContent: 'center', alignItems: 'center',
+  },
   textInput: { flex: 1, fontSize: 15, color: theme.colors.text, fontWeight: '500' },
+  eyeBtn: { padding: 10 },
 
-  registerBtn: { backgroundColor: theme.colors.primary, borderRadius: 14, height: 52, justifyContent: 'center', alignItems: 'center', marginTop: 16 },
+  registerBtn: { borderRadius: 16, overflow: 'hidden', marginTop: 8, ...theme.shadows.colored },
   btnDisabled: { opacity: 0.7 },
-  registerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
+  registerBtnGrad: {
+    height: 56, justifyContent: 'center', alignItems: 'center',
+    flexDirection: 'row', gap: 8,
+  },
+  registerBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
-  loginLinkWrap: { alignItems: 'center', marginTop: 32 },
+  loginLinkWrap: { alignItems: 'center', marginTop: 28 },
   loginLink: { padding: 8 },
-  loginText: { fontSize: 15, color: theme.colors.textSecondary },
+  loginText: { fontSize: 14, color: theme.colors.textSecondary },
   loginTextBold: { color: theme.colors.primary, fontWeight: '800' },
 });

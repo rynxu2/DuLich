@@ -32,5 +32,8 @@ CREATE TABLE IF NOT EXISTS expense_attachments (
 
 CREATE INDEX idx_expenses_tour_id ON expenses(tour_id);
 CREATE INDEX idx_expenses_guide_id ON expenses(guide_id);
+CREATE INDEX idx_expenses_booking_id ON expenses(booking_id);
 CREATE INDEX idx_expenses_status ON expenses(status);
+CREATE INDEX idx_expenses_created ON expenses(created_at DESC);
 CREATE INDEX idx_expense_attachments_expense_id ON expense_attachments(expense_id);
+

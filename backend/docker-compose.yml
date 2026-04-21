@@ -31,7 +31,7 @@ x-java-service: &java-service
       max-file: "3"
 
 x-java-env: &java-env
-  SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+  # DB credentials (shared user) — URL overridden per-service
   SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
   SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
   SPRING_RABBITMQ_HOST: rabbitmq
@@ -274,6 +274,7 @@ services:
       - "8081:8081"
     environment:
       <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/auth_db
     deploy:
       resources:
         limits:
@@ -301,6 +302,7 @@ services:
       - "8082:8082"
     environment:
       <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/user_db
     deploy:
       resources:
         limits:
@@ -326,6 +328,7 @@ services:
       - "8088:8088"
     environment:
       <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tour_db
       # Elasticsearch disabled in dev — use PostgreSQL ILIKE
       # SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
     deploy:
@@ -353,6 +356,7 @@ services:
       - "8089:8089"
     environment:
       <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_db
     deploy:
       resources:
         limits:
@@ -378,6 +382,7 @@ services:
       - "8085:8085"
     environment:
       <<: *java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
     deploy:
       resources:
         limits:
@@ -407,6 +412,7 @@ services:
       - "8086:8086"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/review_db
     deploy:
       resources:
         limits:
@@ -430,6 +436,7 @@ services:
       - "8084:8084"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/itinerary_db
     deploy:
       resources:
         limits:
@@ -453,6 +460,7 @@ services:
       - "8091:8091"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
     deploy:
       resources:
         limits:
@@ -478,6 +486,7 @@ services:
       - "8092:8092"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tour_db
     deploy:
       resources:
         limits:
@@ -501,6 +510,7 @@ services:
       - "8093:8093"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/analytics_db
     deploy:
       resources:
         limits:
@@ -526,6 +536,7 @@ services:
       - "8094:8094"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/booking_db
     deploy:
       resources:
         limits:
@@ -572,6 +583,7 @@ services:
       - "8096:8096"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/expense_db
     deploy:
       resources:
         limits:
@@ -597,6 +609,7 @@ services:
       - "8097:8097"
     environment:
       <<: *small-java-env
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/pricing_db
     deploy:
       resources:
         limits:

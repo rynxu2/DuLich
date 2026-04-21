@@ -12,9 +12,11 @@ CREATE TABLE IF NOT EXISTS reviews (
     rating          DECIMAL(2,1) NOT NULL CHECK (rating >= 1.0 AND rating <= 5.0),
     title           VARCHAR(255),
     comment         TEXT,
+    image_urls      JSONB,                               -- review photos
     is_anonymous    BOOLEAN      DEFAULT FALSE,
     status          VARCHAR(20)  NOT NULL DEFAULT 'PUBLISHED',
     -- PUBLISHED, HIDDEN, FLAGGED
+    deleted_at      TIMESTAMP,                           -- soft delete
     created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, tour_id)
@@ -22,5 +24,8 @@ CREATE TABLE IF NOT EXISTS reviews (
 
 CREATE INDEX IF NOT EXISTS idx_reviews_tour_id    ON reviews(tour_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_user_id    ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_booking_id ON reviews(booking_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_rating     ON reviews(rating DESC);
 CREATE INDEX IF NOT EXISTS idx_reviews_created    ON reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_active     ON reviews(deleted_at) WHERE deleted_at IS NULL;
+

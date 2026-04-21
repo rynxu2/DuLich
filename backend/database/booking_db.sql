@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     payment_status   VARCHAR(20)  NOT NULL DEFAULT 'UNPAID',
                      -- UNPAID → PAID → REFUNDED
     paid_at          TIMESTAMP,
+    deleted_at       TIMESTAMP,                          -- soft delete
     created_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -31,30 +32,29 @@ CREATE TABLE IF NOT EXISTS bookings (
 -- Indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id        ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_tour_id        ON bookings(tour_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_departure_id   ON bookings(departure_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status         ON bookings(status);
 CREATE INDEX IF NOT EXISTS idx_bookings_payment_status ON bookings(payment_status);
 CREATE INDEX IF NOT EXISTS idx_bookings_created        ON bookings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bookings_active         ON bookings(deleted_at) WHERE deleted_at IS NULL;
 
 -- ─────────────────────────────────────────────
--- REVIEWS — Customer feedback & ratings
+-- BOOKING_TRAVELERS — Detailed per-traveler info
 -- ─────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS reviews (
+CREATE TABLE IF NOT EXISTS booking_travelers (
     id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT       NOT NULL,
-    tour_id         BIGINT       NOT NULL,
-    booking_id      BIGINT,                              -- optional link to booking
-    rating          DECIMAL(2,1) NOT NULL CHECK (rating >= 1.0 AND rating <= 5.0),
-    title           VARCHAR(255),
-    comment         TEXT,
-    is_anonymous    BOOLEAN      DEFAULT FALSE,
-    status          VARCHAR(20)  NOT NULL DEFAULT 'PUBLISHED',
-                    -- PUBLISHED, HIDDEN, FLAGGED
-    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, tour_id)                             -- 1 review per user per tour
+    booking_id      BIGINT       NOT NULL,
+    full_name       VARCHAR(100) NOT NULL,
+    date_of_birth   DATE,
+    id_number       VARCHAR(30),                         -- CMND/CCCD/Passport
+    type            VARCHAR(10)  NOT NULL DEFAULT 'ADULT',
+                    -- ADULT, CHILD, INFANT
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_reviews_tour_id    ON reviews(tour_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_user_id    ON reviews(user_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_rating     ON reviews(rating DESC);
-CREATE INDEX IF NOT EXISTS idx_reviews_created    ON reviews(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_booking_travelers_booking ON booking_travelers(booking_id);
+
+-- Reviews have been moved to review_db (owned by review-service).
+-- booking_db no longer manages review data.
+
+

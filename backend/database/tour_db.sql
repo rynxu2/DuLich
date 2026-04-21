@@ -15,13 +15,16 @@ CREATE TABLE IF NOT EXISTS tours (
     location          VARCHAR(255)  NOT NULL,
     category          VARCHAR(50)   NOT NULL DEFAULT 'adventure',
     price             DECIMAL(12,2) NOT NULL,
-    duration          INTEGER       NOT NULL,           -- days
+    original_price    DECIMAL(12,2),                      -- show crossed-out price
+    duration          INTEGER       NOT NULL,              -- days
     max_participants  INTEGER       DEFAULT 30,
-    rating            DECIMAL(2,1)  DEFAULT 0.0,        -- avg from reviews
+    rating            DECIMAL(2,1)  DEFAULT 0.0,
     review_count      INTEGER       DEFAULT 0,
-    itinerary         JSONB,                             -- template itinerary
-    image_url         VARCHAR(500),                      -- primary image
+    itinerary         JSONB,
+    image_url         VARCHAR(500),
     is_active         BOOLEAN       NOT NULL DEFAULT TRUE,
+    deleted_at        TIMESTAMP,                           -- soft delete
+    search_vector     tsvector,                            -- full-text search
     created_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at        TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -35,6 +38,26 @@ CREATE INDEX IF NOT EXISTS idx_tours_category  ON tours(category);
 CREATE INDEX IF NOT EXISTS idx_tours_price     ON tours(price);
 CREATE INDEX IF NOT EXISTS idx_tours_rating    ON tours(rating DESC);
 CREATE INDEX IF NOT EXISTS idx_tours_active    ON tours(is_active);
+CREATE INDEX IF NOT EXISTS idx_tours_deleted   ON tours(deleted_at) WHERE deleted_at IS NULL;
+
+-- Full-text search index
+CREATE INDEX IF NOT EXISTS idx_tours_search ON tours USING GIN (search_vector);
+
+-- Auto-update search_vector on INSERT/UPDATE
+CREATE OR REPLACE FUNCTION tours_search_trigger() RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('simple', coalesce(NEW.title, '')), 'A') ||
+    setweight(to_tsvector('simple', coalesce(NEW.location, '')), 'B') ||
+    setweight(to_tsvector('simple', coalesce(NEW.description, '')), 'C');
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS tours_search_update ON tours;
+CREATE TRIGGER tours_search_update
+  BEFORE INSERT OR UPDATE ON tours
+  FOR EACH ROW EXECUTE FUNCTION tours_search_trigger();
 
 -- ─────────────────────────────────────────────
 -- TOUR_IMAGES — Gallery images per tour

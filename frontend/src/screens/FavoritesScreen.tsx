@@ -1,5 +1,5 @@
 /**
- * Favorites Screen — List of saved/favorite tours (API-powered)
+ * FavoritesScreen — Premium favorites list with beautiful empty state
  */
 import React from 'react';
 import {
@@ -33,12 +33,15 @@ export default function FavoritesScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* ── Header ── */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Icon name="arrow-left" size={24} color={theme.colors.text} />
+          <Icon name="arrow-left" size={22} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={styles.hTitle}>Tour Yêu Thích</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{favorites.length}</Text>
+        </View>
       </View>
 
       {isLoading ? (
@@ -52,26 +55,35 @@ export default function FavoritesScreen({ navigation }: Props) {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={theme.colors.primary} />
           }
           renderItem={({ item }) => (
-            <View>
-              <TourCard tour={item} onPress={() => {}} />
-              <TouchableOpacity
-                style={styles.removeBtn}
-                onPress={() => handleRemoveFavorite(item.id)}>
-                <Icon name="heart-off" size={18} color={theme.colors.error} />
-                <Text style={styles.removeBtnText}>Bỏ yêu thích</Text>
-              </TouchableOpacity>
-            </View>
+            <TourCard
+              tour={item}
+              onPress={() => navigation.navigate('TourDetail', { tourId: item.id })}
+              onFavoritePress={() => handleRemoveFavorite(item.id)}
+              isFavorite={true}
+            />
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Icon name="heart-outline" size={64} color={theme.colors.textLight} />
+              <View style={styles.emptyIconWrap}>
+                <View style={styles.emptyIconInner}>
+                  <Icon name="heart-outline" size={36} color={theme.colors.heart} />
+                </View>
+              </View>
               <Text style={styles.emptyTitle}>Chưa có tour yêu thích</Text>
               <Text style={styles.emptySubtitle}>
-                Nhấn trên các tour để lưu vào danh sách yêu thích
+                Khám phá những tour tuyệt vời và nhấn vào biểu tượng trái tim để lưu lại!
               </Text>
+              <TouchableOpacity
+                style={styles.exploreBtn}
+                onPress={() => navigation.navigate('HomeTab')}
+                activeOpacity={0.85}
+              >
+                <Icon name="compass-outline" size={18} color="#fff" />
+                <Text style={styles.exploreBtnText}>Khám Phá Ngay</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -84,22 +96,53 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface,
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: theme.colors.surface,
+    ...theme.shadows.sm,
   },
-  backBtn: { padding: 8 },
-  hTitle: { ...theme.typography.h3, color: theme.colors.text },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 14,
+    backgroundColor: theme.colors.surfaceVariant,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  hTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text },
+  countBadge: {
+    minWidth: 28, height: 28, borderRadius: 10,
+    backgroundColor: theme.colors.primaryMuted,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 8,
+  },
+  countText: { fontSize: 13, fontWeight: '700', color: theme.colors.primary },
+
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 20 },
-  removeBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    marginTop: -8, marginBottom: 12, paddingVertical: 8,
-  },
-  removeBtnText: { ...theme.typography.bodySmall, color: theme.colors.error },
+  list: { paddingHorizontal: 20, paddingVertical: 16, paddingBottom: 100 },
+
+  // ── Empty State ──
   emptyContainer: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { ...theme.typography.h3, color: theme.colors.textLight, marginTop: 16 },
-  emptySubtitle: {
-    ...theme.typography.bodySmall, color: theme.colors.textLight,
-    marginTop: 4, textAlign: 'center', paddingHorizontal: 40,
+  emptyIconWrap: {
+    width: 100, height: 100, borderRadius: 32,
+    backgroundColor: theme.colors.errorMuted,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 24,
   },
+  emptyIconInner: {
+    width: 64, height: 64, borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
+    ...theme.shadows.sm,
+  },
+  emptyTitle: {
+    fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14, color: theme.colors.textSecondary,
+    textAlign: 'center', paddingHorizontal: 50, lineHeight: 21, marginBottom: 28,
+  },
+  exploreBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 24, paddingVertical: 14,
+    borderRadius: theme.borderRadius.xl,
+    ...theme.shadows.colored,
+  },
+  exploreBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
