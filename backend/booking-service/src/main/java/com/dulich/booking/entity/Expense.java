@@ -49,7 +49,7 @@ public class Expense {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<ExpenseAttachment> attachments;
 
     @Column(name = "created_at", nullable = false, updatable = false) @Builder.Default

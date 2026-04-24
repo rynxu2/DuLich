@@ -63,14 +63,14 @@ public class TourService {
 
     public Tour updateTour(Long id, Tour tourDetails) {
         Tour tour = getTourById(id);
-        tour.setTitle(tourDetails.getTitle());
-        tour.setDescription(tourDetails.getDescription());
-        tour.setLocation(tourDetails.getLocation());
-        tour.setPrice(tourDetails.getPrice());
-        tour.setDuration(tourDetails.getDuration());
-        tour.setRating(tourDetails.getRating());
-        tour.setItinerary(tourDetails.getItinerary());
-        tour.setImageUrl(tourDetails.getImageUrl());
+        if (tourDetails.getTitle() != null) tour.setTitle(tourDetails.getTitle());
+        if (tourDetails.getDescription() != null) tour.setDescription(tourDetails.getDescription());
+        if (tourDetails.getLocation() != null) tour.setLocation(tourDetails.getLocation());
+        if (tourDetails.getPrice() != null) tour.setPrice(tourDetails.getPrice());
+        if (tourDetails.getDuration() != null) tour.setDuration(tourDetails.getDuration());
+        if (tourDetails.getRating() != null) tour.setRating(tourDetails.getRating());
+        if (tourDetails.getItinerary() != null) tour.setItinerary(tourDetails.getItinerary());
+        if (tourDetails.getImageUrl() != null) tour.setImageUrl(tourDetails.getImageUrl());
         return tourRepository.save(tour);
     }
 
