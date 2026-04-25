@@ -33,6 +33,11 @@ public class ReviewController {
         return ResponseEntity.ok(reviewService.getReviewsByUser(userId));
     }
 
+    @GetMapping("/user/{userId}/count")
+    public ResponseEntity<Long> getUserReviewCount(@PathVariable Long userId) {
+        return ResponseEntity.ok(reviewService.getReviewCountByUser(userId));
+    }
+
     @GetMapping("/me")
     public ResponseEntity<List<Review>> getMyReviews(@RequestHeader("X-User-Id") String userId) {
         return ResponseEntity.ok(reviewService.getReviewsByUser(Long.parseLong(userId)));

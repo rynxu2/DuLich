@@ -6,7 +6,7 @@
  * Note: Guide assignment, availability calendar, and GPS tracking
  *       will be expanded as the Guide Service matures.
  */
-import apiClient from './client';
+import apiClient from '../api';
 
 export interface GuideSchedule {
   id: number;

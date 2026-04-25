@@ -15,6 +15,8 @@ import { theme } from '../theme';
 import TourDetailScreen from '../screens/TourDetailScreen';
 import BookingScreen from '../screens/BookingScreen';
 import PaymentScreen from '../screens/PaymentScreen';
+import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
+import PaymentDetailScreen from '../screens/PaymentDetailScreen';
 import ReviewScreen from '../screens/ReviewScreen';
 import ItineraryScreen from '../screens/ItineraryScreen';
 import TrackingScreen from '../screens/TrackingScreen';
@@ -22,6 +24,7 @@ import ChatScreen from '../screens/ChatScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
+import SettingsScreen from '../screens/SettingsScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -35,6 +38,8 @@ export type RootStackParamList = {
     departureDate?: string;
   };
   Payment: { bookingId: number };
+  PaymentHistory: undefined;
+  PaymentDetail: { paymentId: number };
   Review: { tourId: number; tourTitle: string };
   Itinerary: { bookingId: number; tourTitle: string };
   Tracking: { tourId: number };
@@ -42,6 +47,7 @@ export type RootStackParamList = {
   Notifications: undefined;
   EditProfile: undefined;
   Feedback: undefined;
+  Settings: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -82,6 +88,8 @@ export default function AppNavigator() {
             <Stack.Screen name="TourDetail" component={TourDetailScreen} />
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="Payment" component={PaymentScreen} />
+            <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
+            <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
             <Stack.Screen name="Review" component={ReviewScreen} />
             <Stack.Screen name="Itinerary" component={ItineraryScreen} />
             <Stack.Screen name="Tracking" component={TrackingScreen} />
@@ -89,6 +97,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
           </>
         )}
       </Stack.Navigator>

@@ -37,6 +37,7 @@ public class ExpenseService {
         return expense;
     }
 
+    public List<Expense> getAll() { return expenseRepository.findAll(); }
     public List<Expense> getByTourId(Long tourId) { return expenseRepository.findByTourIdOrderByCreatedAtDesc(tourId); }
     public List<Expense> getByGuideId(Long guideId) { return expenseRepository.findByGuideIdOrderByCreatedAtDesc(guideId); }
     public List<Expense> getPending() { return expenseRepository.findByStatusOrderByCreatedAtDesc("PENDING"); }

@@ -1,10 +1,12 @@
 package com.dulich.booking.service;
 
 import com.dulich.booking.client.ItineraryServiceClient;
+import com.dulich.booking.client.IdentityServiceClient;
 import com.dulich.booking.client.TourServiceClient;
 import com.dulich.booking.dto.BookingRequest;
 import com.dulich.booking.dto.BookingResponse;
 import com.dulich.booking.dto.ItineraryRequest;
+import com.dulich.booking.dto.ProfileStatsResponse;
 import com.dulich.booking.dto.TourResponse;
 import com.dulich.booking.entity.Booking;
 import com.dulich.booking.repository.BookingRepository;
@@ -15,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +38,7 @@ public class BookingService {
     private final BookingRepository bookingRepository;
     private final TourServiceClient tourServiceClient;
     private final ItineraryServiceClient itineraryServiceClient;
+    private final IdentityServiceClient identityServiceClient;
 
     /**
      * Create a new booking with circuit breaker protection.
@@ -58,7 +62,7 @@ public class BookingService {
                     request.getTourId(), e.getMessage());
         }
 
-        // Step 2: Save the booking
+        // Step 2: Save the booking with PENDING status (requires admin confirmation)
         Booking booking = Booking.builder()
             .userId(userId)
             .tourId(request.getTourId())
@@ -69,21 +73,11 @@ public class BookingService {
             .contactPhone(request.getContactPhone())
             .specialRequests(request.getSpecialRequests())
             .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH")
-            .status("CONFIRMED")
+            .status("PENDING")
             .build();
 
         Booking savedBooking = bookingRepository.save(booking);
-
-        // Step 3: Auto-create itinerary from tour template (best-effort)
-        if (tour != null) {
-            try {
-                createItineraryFromTemplate(savedBooking.getId(), tour);
-                log.info("Auto-created itinerary for booking {} from tour {} template", savedBooking.getId(), tour.getId());
-            } catch (Exception e) {
-                log.warn("Failed to auto-create itinerary for booking {}. Error: {}",
-                    savedBooking.getId(), e.getMessage());
-            }
-        }
+        log.info("Booking {} created with PENDING status for tourId={}", savedBooking.getId(), request.getTourId());
 
         return savedBooking;
     }
@@ -160,7 +154,7 @@ public class BookingService {
             .contactPhone(request.getContactPhone())
             .specialRequests(request.getSpecialRequests())
             .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH")
-            .status("CONFIRMED")
+            .status("PENDING")
             .build();
         return bookingRepository.save(booking);
     }
@@ -182,6 +176,28 @@ public class BookingService {
             .orElseThrow(() -> new RuntimeException("Booking not found with id: " + id));
     }
 
+    public ProfileStatsResponse getProfileStatsByUserId(Long userId) {
+        long trips = bookingRepository.countByUserId(userId);
+        long reviews = 0;
+        long favorites = 0;
+
+        try {
+            Long reviewCount = tourServiceClient.getReviewCountByUserId(userId);
+            reviews = reviewCount != null ? reviewCount : 0;
+        } catch (Exception e) {
+            log.warn("Could not fetch review count for userId={}: {}", userId, e.getMessage());
+        }
+
+        try {
+            Long favoriteCount = identityServiceClient.getFavoriteCountByUserId(userId);
+            favorites = favoriteCount != null ? favoriteCount : 0;
+        } catch (Exception e) {
+            log.warn("Could not fetch favorite count for userId={}: {}", userId, e.getMessage());
+        }
+
+        return new ProfileStatsResponse(trips, reviews, favorites);
+    }
+
     /**
      * Get single booking enriched with tour info
      */
@@ -190,9 +206,83 @@ public class BookingService {
         return enrichBooking(booking);
     }
 
+    public List<BookingResponse> getAllBookingResponses() {
+        List<Booking> bookings = bookingRepository.findAll();
+        return bookings.stream().map(this::enrichBooking).toList();
+    }
+
     public Booking cancelBooking(Long id) {
         Booking booking = getBookingById(id);
         booking.setStatus("CANCELLED");
+        booking.setUpdatedAt(LocalDateTime.now());
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Confirm a PENDING booking → CONFIRMED.
+     * Auto-creates itinerary from tour template after confirmation.
+     */
+    @CircuitBreaker(name = "tourService", fallbackMethod = "confirmBookingFallback")
+    public Booking confirmBooking(Long id) {
+        Booking booking = getBookingById(id);
+        if (!"PENDING".equals(booking.getStatus())) {
+            throw new RuntimeException("Chỉ có thể xác nhận booking ở trạng thái PENDING. Hiện tại: " + booking.getStatus());
+        }
+        booking.setStatus("CONFIRMED");
+        booking.setUpdatedAt(LocalDateTime.now());
+        Booking saved = bookingRepository.save(booking);
+
+        // Auto-create itinerary from tour template after confirmation
+        try {
+            TourResponse tour = tourServiceClient.getTourById(booking.getTourId());
+            if (tour != null) {
+                createItineraryFromTemplate(saved.getId(), tour);
+                log.info("Auto-created itinerary for confirmed booking {}", saved.getId());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to create itinerary for booking {}: {}", saved.getId(), e.getMessage());
+        }
+
+        log.info("Booking {} confirmed", id);
+        return saved;
+    }
+
+    public Booking confirmBookingFallback(Long id, Throwable t) {
+        log.warn("Tour Service unavailable during confirm. Confirming without itinerary. Cause: {}", t.getMessage());
+        Booking booking = getBookingById(id);
+        if (!"PENDING".equals(booking.getStatus())) {
+            throw new RuntimeException("Chỉ có thể xác nhận booking ở trạng thái PENDING. Hiện tại: " + booking.getStatus());
+        }
+        booking.setStatus("CONFIRMED");
+        booking.setUpdatedAt(LocalDateTime.now());
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Reject a PENDING booking → CANCELLED
+     */
+    public Booking rejectBooking(Long id) {
+        Booking booking = getBookingById(id);
+        if (!"PENDING".equals(booking.getStatus())) {
+            throw new RuntimeException("Chỉ có thể từ chối booking ở trạng thái PENDING. Hiện tại: " + booking.getStatus());
+        }
+        booking.setStatus("CANCELLED");
+        booking.setUpdatedAt(LocalDateTime.now());
+        log.info("Booking {} rejected", id);
+        return bookingRepository.save(booking);
+    }
+
+    /**
+     * Complete a CONFIRMED booking -> COMPLETED
+     */
+    public Booking completeBooking(Long id) {
+        Booking booking = getBookingById(id);
+        if (!"CONFIRMED".equals(booking.getStatus())) {
+            throw new RuntimeException("Chỉ có thể hoàn thành booking đang ở trạng thái CONFIRMED. Hiện tại: " + booking.getStatus());
+        }
+        booking.setStatus("COMPLETED");
+        booking.setUpdatedAt(LocalDateTime.now());
+        log.info("Booking {} completed", id);
         return bookingRepository.save(booking);
     }
 

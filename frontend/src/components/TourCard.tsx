@@ -7,6 +7,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { Tour } from '../api/tours';
 import { theme } from '../theme';
+import { getMediaUrl } from '../utils/media';
 
 const { width } = Dimensions.get('window');
 
@@ -32,7 +33,7 @@ export default function TourCard({ tour, onPress, onFavoritePress, isFavorite = 
       {/* Image */}
       <View style={styles.imageWrap}>
         <Image
-          source={{ uri: tour.imageUrl || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=600' }}
+          source={{ uri: getMediaUrl(tour.imageUrl) || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=600' }}
           style={styles.image}
         />
         <LinearGradient

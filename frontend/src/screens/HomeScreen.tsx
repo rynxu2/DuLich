@@ -17,9 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TourCard from '../components/TourCard';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTours } from '../hooks/useTours';
-import { MainTabParamList } from '../navigation/MainTabs';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
+import { getMediaUrl } from '../utils/media';
 
 type Props = {
   navigation: CompositeNavigationProp<
@@ -135,7 +135,7 @@ export default function HomeScreen({ navigation }: Props) {
               style={styles.avatarWrap}
             >
               <Image
-                source={{ uri: user?.avatarUrl || 'https://mui.com/static/images/avatar/2.jpg' }}
+                source={{ uri: getMediaUrl(user?.avatarUrl) || 'https://mui.com/static/images/avatar/2.jpg' }}
                 style={styles.avatar}
               />
             </TouchableOpacity>
@@ -240,7 +240,7 @@ export default function HomeScreen({ navigation }: Props) {
                 onPress={() => navigation.navigate('TourDetail', { tourId: t.id })}
               >
                 <Image
-                  source={{ uri: t.imageUrl || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=400' }}
+                  source={{ uri: getMediaUrl(t.imageUrl) || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=400' }}
                   style={styles.featImg}
                 />
                 <LinearGradient

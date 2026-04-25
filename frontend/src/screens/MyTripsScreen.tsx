@@ -1,13 +1,13 @@
 /**
  * Premium My Trips Screen — Redesigned with Ticket-style cards
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, Image
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import { CompositeNavigationProp } from '@react-navigation/native';
+import { CompositeNavigationProp, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { useUserBookings, useCancelBooking } from '../hooks/useBookings';
 import { MainTabParamList } from '../navigation/MainTabs';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
+import { getMediaUrl } from '../utils/media';
 
 type Props = {
   navigation: CompositeNavigationProp<
@@ -44,6 +45,12 @@ export default function MyTripsScreen({ navigation }: Props) {
 
   const { data: bookings = [], isLoading: loading, isRefetching, refetch } = useUserBookings();
   const { mutateAsync: cancelBooking } = useCancelBooking();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const filteredBookings = bookings.filter(b => {
     if (activeFilter === 'all') return true;
@@ -96,7 +103,7 @@ export default function MyTripsScreen({ navigation }: Props) {
         
         {/* Ticket Header Image */}
         <View style={styles.cardImageContainer}>
-          <Image source={{ uri: item.tourImage || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=600' }} style={styles.cardImage} />
+          <Image source={{ uri: getMediaUrl(item.tourImage) || 'https://images.unsplash.com/photo-1528127269322-539801943592?w=600' }} style={styles.cardImage} />
           <View style={styles.cardOverlay} />
           <View style={[styles.badge, { backgroundColor: status.bgColor }]}>
              <Icon name={status.icon} size={14} color={status.color} />

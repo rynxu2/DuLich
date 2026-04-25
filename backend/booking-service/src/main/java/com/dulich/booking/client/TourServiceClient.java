@@ -16,4 +16,7 @@ public interface TourServiceClient {
 
     @GetMapping("/tours/{id}")
     TourResponse getTourById(@PathVariable("id") Long id);
+
+    @GetMapping("/reviews/user/{userId}/count")
+    Long getReviewCountByUserId(@PathVariable("userId") Long userId);
 }

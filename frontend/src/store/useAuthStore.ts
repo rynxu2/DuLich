@@ -100,11 +100,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const userData = await AsyncStorage.getItem('user_data');
       if (userData) {
-        const { userId } = JSON.parse(userData);
+        const currentUserData = JSON.parse(userData);
+        const { userId } = currentUserData;
         const res = await usersApi.updateProfile(userId, data);
         const updatedUser = res.data;
-        await AsyncStorage.setItem('user_data', JSON.stringify({ ...JSON.parse(userData), ...updatedUser }));
-        set({ user: updatedUser });
+        const mergedUser = { ...currentUserData, ...updatedUser };
+        await AsyncStorage.setItem('user_data', JSON.stringify(mergedUser));
+        set({ user: mergedUser });
       }
     } catch {
       const { user } = get();

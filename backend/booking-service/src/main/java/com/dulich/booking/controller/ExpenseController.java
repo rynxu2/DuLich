@@ -18,6 +18,11 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
 
+    @GetMapping
+    public ResponseEntity<List<Expense>> listAll() {
+        return ResponseEntity.ok(expenseService.getAll());
+    }
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> health() {
         return ResponseEntity.ok(Map.of("service", "booking-service/expenses", "status", "UP"));

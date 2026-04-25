@@ -14,6 +14,7 @@ import { launchImageLibrary } from 'react-native-image-picker';
 import { useAuthStore } from '../store/useAuthStore';
 import { storageApi } from '../api/storage';
 import { theme } from '../theme';
+import { getMediaUrl } from '../utils/media';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -40,6 +41,7 @@ export default function EditProfileScreen({ navigation }: Props) {
       await updateProfile({
         fullName: fullName.trim(),
         phone: phone.trim(),
+        avatarUrl: avatarUrl || undefined,
       });
       await restoreSession();
       Alert.alert('Thành công', 'Hồ sơ cá nhân đã được cập nhật mượt mà.', [
@@ -64,8 +66,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         try {
           const file = { uri: asset.uri, name: asset.fileName || 'avatar.jpg', type: asset.type || 'image/jpeg' };
           const uploadRes = await storageApi.upload(file, 'user', String(user?.userId || 0));
-          const signedRes = await storageApi.getSignedUrl(uploadRes.data.objectName);
-          setAvatarUrl(signedRes.data);
+          setAvatarUrl(uploadRes.data.url);
         } catch {
           Alert.alert('Lỗi tải ảnh', 'Có vấn đề khi tải ảnh lên. Các bạn thông cảm.');
         } finally {
@@ -93,7 +94,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           <View style={styles.avatarSection}>
             <TouchableOpacity style={styles.avatarBox} onPress={pickAvatar} activeOpacity={0.8}>
               {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} style={styles.avatarImg} />
+                <Image source={{ uri: getMediaUrl(avatarUrl) }} style={styles.avatarImg} />
               ) : (
                 <View style={styles.avatarPlaceholder}>
                   <Icon name="account" size={54} color={theme.colors.textLight} />

@@ -19,6 +19,10 @@ public class FavoriteService {
         return favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    public long getUserFavoriteCount(Long userId) {
+        return favoriteRepository.countByUserId(userId);
+    }
+
     public Favorite addFavorite(Long userId, Long tourId) {
         if (favoriteRepository.existsByUserIdAndTourId(userId, tourId)) {
             return favoriteRepository.findByUserIdOrderByCreatedAtDesc(userId)

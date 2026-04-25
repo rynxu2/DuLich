@@ -2,6 +2,7 @@ package com.dulich.platform.config;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
+import io.minio.SetBucketPolicyArgs;
 import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,8 +27,24 @@ public class MinioConfig {
                 client.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
                 log.info("Created MinIO bucket: {}", bucketName);
             }
+            
+            // Set bucket policy to allow public read access for files
+            String policy = "{\n" +
+                "  \"Version\": \"2012-10-17\",\n" +
+                "  \"Statement\": [\n" +
+                "    {\n" +
+                "      \"Effect\": \"Allow\",\n" +
+                "      \"Principal\": \"*\",\n" +
+                "      \"Action\": [\"s3:GetObject\"],\n" +
+                "      \"Resource\": [\"arn:aws:s3:::" + bucketName + "/*\"]\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+            
+            client.setBucketPolicy(SetBucketPolicyArgs.builder().bucket(bucketName).config(policy).build());
+            log.info("Set public read policy on bucket: {}", bucketName);
         } catch (Exception e) {
-            log.warn("MinIO bucket init failed (may not be running): {}", e.getMessage());
+            log.warn("MinIO bucket init/policy failed (may not be running): {}", e.getMessage());
         }
         return client;
     }

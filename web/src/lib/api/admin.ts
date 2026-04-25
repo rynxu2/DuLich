@@ -4,7 +4,7 @@
  * GET /admin/health         — Service health
  * GET /admin/system/status  — Full system status
  */
-import apiClient from './client';
+import apiClient from '../api';
 
 export interface SystemStatus {
   services: number;

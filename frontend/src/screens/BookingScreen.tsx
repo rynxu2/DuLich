@@ -145,8 +145,8 @@ export default function BookingScreen({ navigation, route }: Props) {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Icon name="close" size={26} color={theme.colors.text} />
         </TouchableOpacity>
@@ -298,7 +298,7 @@ export default function BookingScreen({ navigation, route }: Props) {
                </View>
              )}
 
-             {pricePreview?.appliedRules?.map((rule, idx) => (
+             {!!appliedPromo && pricePreview?.appliedRules?.map((rule, idx) => (
                 <View key={idx} style={styles.breakdownRow}>
                   <Text style={[styles.breakdownLabel, { color: theme.colors.success }]}>{rule.ruleName}</Text>
                   <Text style={[styles.breakdownValue, { color: theme.colors.success }]}>{rule.adjustment > 0 ? '+' : ''}{formatPrice(rule.adjustment)}</Text>
@@ -316,7 +316,7 @@ export default function BookingScreen({ navigation, route }: Props) {
                <Text style={styles.totalText}>Tổng Cộng</Text>
                <Text style={styles.totalValueLg}>{formatPrice(finalPrice)}</Text>
              </View>
-             {savings > 0 && <Text style={styles.savingsSubtext}>(Bạn đã tiết kiệm được {formatPrice(savings)})</Text>}
+             {!!appliedPromo && savings > 0 && <Text style={styles.savingsSubtext}>(Bạn đã tiết kiệm được {formatPrice(savings)})</Text>}
           </View>
 
           <View style={styles.policyFooterRow}>
@@ -328,7 +328,7 @@ export default function BookingScreen({ navigation, route }: Props) {
       </KeyboardAvoidingView>
 
       {/* Floating Checkout Bar */}
-      <View style={styles.bottomCheckoutBar}>
+      <View style={[styles.bottomCheckoutBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.checkoutTotalLabel}>Tổng thanh toán</Text>
           <Text style={styles.checkoutTotalValue}>{formatPrice(finalPrice)}</Text>
@@ -372,13 +372,13 @@ const styles = StyleSheet.create({
   stepperBtnDisabled: { opacity: 0.5 },
   stepperValue: { fontSize: 18, fontWeight: '800', width: 24, textAlign: 'center' },
 
-  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 24 },
-  payCard: { width: '48%', backgroundColor: theme.colors.surface, borderRadius: 14, padding: 16, borderWidth: 1.5, borderColor: theme.colors.border, ...theme.shadows.sm },
-  payCardActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary + '0A' },
+  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 12 },
+  payCard: { width: '48%', backgroundColor: theme.colors.surface, borderRadius: 14, padding: 16, borderWidth: 2, borderColor: theme.colors.borderLight, marginBottom: 16, ...theme.shadows.sm },
+  payCardActive: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryMuted, ...theme.shadows.colored },
   payCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   payIconBg: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   payCardLabel: { fontSize: 15, fontWeight: '600', color: theme.colors.textSecondary },
-  payCardLabelActive: { color: theme.colors.text, fontWeight: '800' },
+  payCardLabelActive: { color: theme.colors.primaryDark, fontWeight: '800' },
 
   promoRow: { flexDirection: 'row', alignItems: 'center' },
   applyBtn: { backgroundColor: theme.colors.accent, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },

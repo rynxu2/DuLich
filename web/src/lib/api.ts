@@ -91,6 +91,9 @@ export const bookingsApi = {
   getByUser: (userId: number) => apiClient.get(`/bookings/user/${userId}`),
   getById: (id: number) => apiClient.get(`/bookings/${id}`),
   cancel: (id: number) => apiClient.put(`/bookings/${id}/cancel`),
+  confirm: (id: number) => apiClient.put(`/bookings/${id}/confirm`),
+  reject: (id: number) => apiClient.put(`/bookings/${id}/reject`),
+  complete: (id: number) => apiClient.put(`/bookings/${id}/complete`),
 };
 
 // ── Users ──
@@ -98,6 +101,7 @@ export const usersApi = {
   list: () => apiClient.get('/users'),
   getProfile: (userId: number) => apiClient.get(`/users/${userId}/profile`),
   updateProfile: (userId: number, data: any) => apiClient.put(`/users/${userId}/profile`, data),
+  updateRole: (userId: number, role: string) => apiClient.put(`/users/${userId}/role`, { role }),
 };
 
 // ── Payments ──
@@ -165,4 +169,19 @@ export const storageApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+};
+
+// ── Guides ──
+export const guidesApi = {
+  listByRole: (role: string) => apiClient.get('/users', { params: { role } }),
+  createGuide: (data: { username: string; email: string; password: string; fullName?: string; phone?: string }) =>
+    apiClient.post('/users/guides', data),
+  updateRole: (userId: number, role: string) => apiClient.put(`/users/${userId}/role`, { role }),
+
+  listSchedules: () => apiClient.get('/guides/schedules'),
+  getByTour: (tourId: number) => apiClient.get(`/guides/schedules/tour/${tourId}`),
+  getByGuide: (guideId: number) => apiClient.get(`/guides/schedules/guide/${guideId}`),
+  assign: (data: any) => apiClient.post('/guides/schedules', data),
+  updateStatus: (id: number, status: string) => apiClient.put(`/guides/schedules/${id}/status`, { status }),
+  delete: (id: number) => apiClient.delete(`/guides/schedules/${id}`),
 };

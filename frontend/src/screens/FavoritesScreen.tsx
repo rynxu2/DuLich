@@ -1,13 +1,14 @@
 /**
  * FavoritesScreen — Premium favorites list with beautiful empty state
  */
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TourCard from '../components/TourCard';
 import { theme } from '../theme';
@@ -22,6 +23,12 @@ export default function FavoritesScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { data: favorites = [], isLoading, isRefetching, refetch } = useFavorites();
   const { mutate: toggleFavorite } = useToggleFavorite();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const handleRemoveFavorite = (tourId: number) => {
     toggleFavorite(tourId, {

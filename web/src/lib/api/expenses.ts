@@ -11,7 +11,7 @@
  * PUT    /expenses/{id}/approve — Approve expense
  * PUT    /expenses/{id}/reject  — Reject expense
  */
-import apiClient from './client';
+import apiClient from '../api';
 
 export type ExpenseCategory = 'FOOD' | 'TRANSPORT' | 'ACCOMMODATION' | 'TICKETS' | 'UNEXPECTED';
 export type ExpenseStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

@@ -1,17 +1,18 @@
 /**
  * ProfileScreen — Gradient hero header, stat cards, grouped menus
  */
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Image, Platform } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../store/useAuthStore';
-import { useUserBookings } from '../hooks/useBookings';
 import { useFavorites } from '../hooks/useFavorites';
-import { useUserReviews } from '../hooks/useReviews';
+import { useProfileStats } from '../hooks/useProfileStats';
 import { theme } from '../theme';
+import { getMediaUrl } from '../utils/media';
 
 type Props = { navigation: NativeStackNavigationProp<any> };
 
@@ -24,14 +25,20 @@ const STATS_CONFIG = [
 export default function ProfileScreen({ navigation }: Props) {
   const { user, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
-  const { data: bookings = [] } = useUserBookings();
-  const { data: favorites = [] } = useFavorites();
-  const { data: reviews = [] } = useUserReviews();
+  const { data: favorites = [], refetch: refetchFavorites } = useFavorites();
+  const { data: profileStats, refetch: refetchStats } = useProfileStats();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchFavorites();
+      refetchStats();
+    }, [refetchFavorites, refetchStats])
+  );
 
   const statValues = {
-    trips: bookings.length,
-    reviews: reviews.length,
-    favorites: favorites.length,
+    trips: profileStats?.trips ?? 0,
+    reviews: profileStats?.reviews ?? 0,
+    favorites: profileStats?.favorites ?? 0,
   };
 
   const handleLogout = () => {
@@ -46,15 +53,15 @@ export default function ProfileScreen({ navigation }: Props) {
       title: 'Tài khoản',
       items: [
         { icon: 'account-edit-outline', label: 'Thông tin cá nhân', color: theme.colors.primary, onPress: () => navigation.navigate('EditProfile') },
-        { icon: 'heart-outline', label: 'Tour yêu thích', color: theme.colors.heart, onPress: () => navigation.navigate('Favorites'), badge: favorites.length || undefined },
-        { icon: 'credit-card-outline', label: 'Thanh toán & Hóa đơn', color: theme.colors.success, onPress: () => Alert.alert('Thanh Toán', 'Sắp ra mắt!') },
+        { icon: 'heart-outline', label: 'Tour yêu thích', color: theme.colors.heart, onPress: () => navigation.navigate('FavoritesTab'), badge: favorites.length || undefined },
+        { icon: 'credit-card-outline', label: 'Thanh toán & Hóa đơn', color: theme.colors.success, onPress: () => navigation.navigate('PaymentHistory') },
       ],
     },
     {
       title: 'Hỗ trợ',
       items: [
         { icon: 'headphones', label: 'Trung tâm trợ giúp', color: theme.colors.info, onPress: () => navigation.navigate('Feedback') },
-        { icon: 'cog-outline', label: 'Cài đặt', color: theme.colors.textSecondary, onPress: () => Alert.alert('Cài Đặt', 'Đang xây dựng!') },
+        { icon: 'cog-outline', label: 'Cài đặt', color: theme.colors.textSecondary, onPress: () => navigation.navigate('Settings') },
         { icon: 'information-outline', label: 'Về DuLịch App', color: theme.colors.primary, onPress: () => Alert.alert('DuLịch App', 'Phiên bản 1.0.0\n\n© 2026 DuLịch App Team') },
       ],
     },
@@ -107,7 +114,7 @@ export default function ProfileScreen({ navigation }: Props) {
         <View style={styles.profileRow}>
           <View style={styles.avatarRing}>
             {user.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+              <Image source={{ uri: getMediaUrl(user.avatarUrl) }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <Icon name="account" size={36} color={theme.colors.primary} />

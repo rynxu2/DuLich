@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getMediaUrl } from '../utils/media';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'TourDetail'>;
@@ -66,11 +67,17 @@ export default function TourDetailScreen({ navigation, route }: Props) {
   const sliderImages = useCallback((): { uri: string }[] => {
     if (!tour) return [];
     const imgs: { uri: string }[] = [];
-    if (tour.imageUrl) imgs.push({ uri: tour.imageUrl });
+    if (tour.imageUrl) {
+      const url = getMediaUrl(tour.imageUrl);
+      if (url) imgs.push({ uri: url });
+    }
     if (tour.images?.length) {
       tour.images
         .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-        .forEach(img => imgs.push({ uri: img.imageUrl }));
+        .forEach(img => {
+          const url = getMediaUrl(img.imageUrl);
+          if (url) imgs.push({ uri: url });
+        });
     }
     if (!imgs.length) imgs.push({ uri: 'https://images.unsplash.com/photo-1528127269322-539801943592?w=800' });
     return imgs;

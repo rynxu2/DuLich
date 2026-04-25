@@ -29,6 +29,10 @@ public class ReviewService {
         return reviewRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    public long getReviewCountByUser(Long userId) {
+        return reviewRepository.countByUserId(userId);
+    }
+
     public void deleteReview(Long id) {
         reviewRepository.deleteById(id);
     }

@@ -57,6 +57,12 @@ export interface CreateBookingData {
   promoCode?: string;        // Added for pricing evaluation integration
 }
 
+export interface ProfileStats {
+  trips: number;
+  reviews: number;
+  favorites: number;
+}
+
 export const bookingsApi = {
   /**
    * Create booking → triggers Saga pattern:
@@ -72,6 +78,10 @@ export const bookingsApi = {
   /** Get booking detail with enriched tour info */
   getById: (id: number) =>
     apiClient.get<BookingResponse>(`/bookings/${id}`),
+
+  /** Get profile stats summary (trips/reviews/favorites) */
+  getProfileStats: (userId: number) =>
+    apiClient.get<ProfileStats>(`/bookings/user/${userId}/stats`),
 
   /** Cancel booking */
   cancel: (id: number) =>

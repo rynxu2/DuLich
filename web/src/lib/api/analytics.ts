@@ -5,7 +5,7 @@
  * GET /analytics/kpi      — KPI dashboard data
  * GET /analytics/health   — Service health
  */
-import apiClient from './client';
+import apiClient from '../api';
 
 export interface RevenueData {
   totalRevenue: number;

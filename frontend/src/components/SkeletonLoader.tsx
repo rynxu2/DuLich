@@ -12,7 +12,7 @@ export default function SkeletonLoader({ width = '100%', height = 20, borderRadi
   const customOpacity = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    Animated.loop(
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(customOpacity, {
           toValue: 0.7,
@@ -25,7 +25,13 @@ export default function SkeletonLoader({ width = '100%', height = 20, borderRadi
           useNativeDriver: true,
         }),
       ])
-    ).start();
+    );
+    
+    animation.start();
+
+    return () => {
+      animation.stop();
+    };
   }, [customOpacity]);
 
   return (

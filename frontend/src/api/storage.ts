@@ -11,9 +11,11 @@ import apiClient from './client';
 export interface FileUploadResponse {
   fileId: string;
   fileName: string;
-  fileSize: number;
+  size: number;
   contentType: string;
-  objectName: string;
+  url: string;
+  entityType: string;
+  entityId: number;
 }
 
 export const storageApi = {
@@ -36,7 +38,7 @@ export const storageApi = {
 
   /** Get temporary pre-signed URL for a file */
   getSignedUrl: (objectName: string) =>
-    apiClient.get<string>('/storage/signed-url', {
+    apiClient.get<{ url: string }>('/storage/signed-url', {
       params: { objectName },
     }),
 

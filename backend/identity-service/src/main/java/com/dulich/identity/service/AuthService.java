@@ -165,4 +165,69 @@ public class AuthService {
             .createdAt(user.getCreatedAt())
             .build();
     }
+
+    public java.util.List<UserResponse> getUsersByRole(String role) {
+        return userRepository.findByRoleAndIsActive(role, true)
+            .stream().map(this::toUserResponse)
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    public java.util.List<UserResponse> getAllUsers() {
+        return userRepository.findAll()
+            .stream().map(this::toUserResponse)
+            .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Transactional
+    public AuthResponse createGuide(RegisterRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("Username already exists");
+        }
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        User user = User.builder()
+            .username(request.getUsername())
+            .email(request.getEmail())
+            .password(passwordEncoder.encode(request.getPassword()))
+            .fullName(request.getFullName())
+            .phone(request.getPhone())
+            .role("GUIDE")
+            .build();
+        user = userRepository.save(user);
+
+        UserProfile profile = UserProfile.builder()
+            .userId(user.getId())
+            .fullName(request.getFullName())
+            .phone(request.getPhone())
+            .build();
+        userProfileRepository.save(profile);
+
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+        saveRefreshToken(user.getId(), refreshToken);
+
+        log.info("Guide created: {} (ID: {})", user.getUsername(), user.getId());
+
+        return AuthResponse.builder()
+            .userId(user.getId())
+            .username(user.getUsername())
+            .email(user.getEmail())
+            .role(user.getRole())
+            .accessToken(accessToken)
+            .refreshToken(refreshToken)
+            .build();
+    }
+
+    @Transactional
+    public UserResponse updateUserRole(Long userId, String newRole) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setRole(newRole);
+        user.setUpdatedAt(LocalDateTime.now());
+        user = userRepository.save(user);
+        log.info("User {} role updated to {}", userId, newRole);
+        return toUserResponse(user);
+    }
 }

@@ -44,12 +44,13 @@ export default function TrackingScreen({ navigation, route }: Props) {
 
   useEffect(() => {
     // Slide up bottom panel
-    Animated.spring(slideAnim, {
+    const anim = Animated.spring(slideAnim, {
       toValue: 0,
       tension: 50,
       friction: 8,
       useNativeDriver: true,
-    }).start();
+    });
+    anim.start();
 
     // Subscribe to STOMP topic for live guide locations
     const topic = `/topic/tracking.${tourId}`;
@@ -74,6 +75,7 @@ export default function TrackingScreen({ navigation, route }: Props) {
     });
 
     return () => {
+      anim.stop();
       wsService.unsubscribe(subId);
     };
   }, [tourId, slideAnim]);

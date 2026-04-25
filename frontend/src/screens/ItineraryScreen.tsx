@@ -13,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TimelineItem from '../components/TimelineItem';
 import { ItineraryItem, itineraryApi } from '../api/itinerary';
 import { Booking, bookingsApi } from '../api/bookings';
+import { guidesApi } from '../api/guides';
+import { usersApi, UserProfile } from '../api/users';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 
@@ -41,6 +43,8 @@ export default function ItineraryScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  
+  const [guideProfile, setGuideProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,6 +56,17 @@ export default function ItineraryScreen({ navigation, route }: Props) {
           const itineraryRes = await itineraryApi.getByBooking(bookingRes.data.id);
           setItems(itineraryRes.data || []);
         } catch { setItems([]); }
+        
+        try {
+          const schedulesRes = await guidesApi.getSchedulesByTour(bookingRes.data.tourId);
+          const schedules = schedulesRes.data || [];
+          const activeSchedule = schedules.find(s => s.bookingId === bookingRes.data.id && s.status !== 'CANCELLED');
+          if (activeSchedule) {
+            const profileRes = await usersApi.getProfile(activeSchedule.guideUserId);
+            setGuideProfile(profileRes.data);
+          }
+        } catch (e) { console.log('Không thể lấy thông tin HDV', e); }
+        
       } catch {
         setError('Không thể tải thông tin. Vui lòng thử lại.');
       } finally { setLoading(false); }
@@ -175,6 +190,30 @@ export default function ItineraryScreen({ navigation, route }: Props) {
                  <Text style={styles.bookingText}>{booking?.travelers || 0} Hành khách</Text>
                </View>
              </View>
+             
+             {/* Guide Info Card */}
+             {guideProfile && (
+               <View style={styles.guideCard}>
+                 <View style={styles.guideAvatarWrapper}>
+                   {guideProfile.avatarUrl ? (
+                     <ImageBackground source={{ uri: guideProfile.avatarUrl }} style={styles.guideAvatar} imageStyle={{ borderRadius: 24 }} />
+                   ) : (
+                     <View style={styles.guideAvatarPlaceholder}>
+                       <Text style={styles.guideAvatarText}>{(guideProfile.fullName || guideProfile.username || 'G')[0]?.toUpperCase()}</Text>
+                     </View>
+                   )}
+                   <View style={styles.guideBadge}><Icon name="shield-check" size={10} color="#fff" /></View>
+                 </View>
+                 <View style={styles.guideInfo}>
+                   <Text style={styles.guideRole}>HƯỚNG DẪN VIÊN</Text>
+                   <Text style={styles.guideName}>{guideProfile.fullName || guideProfile.username}</Text>
+                   <Text style={styles.guidePhone}><Icon name="phone" size={12} /> {guideProfile.phone || 'Chưa cập nhật SĐT'}</Text>
+                 </View>
+                 <TouchableOpacity style={styles.guideContactBtn} onPress={() => Alert.alert('Liên hệ', 'Tính năng gọi điện đang được phát triển.')}>
+                   <Icon name="phone-in-talk" size={20} color={theme.colors.primary} />
+                 </TouchableOpacity>
+               </View>
+             )}
            </View>
 
            {/* Timeline Items */}
@@ -292,6 +331,18 @@ const styles = StyleSheet.create({
   bookingRow: { flexDirection: 'row', gap: 24 },
   bookingCol: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   bookingText: { fontSize: 14, fontWeight: '600', color: theme.colors.text },
+
+  guideCard: { flexDirection: 'row', alignItems: 'center', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  guideAvatarWrapper: { width: 48, height: 48, marginRight: 12 },
+  guideAvatar: { width: 48, height: 48, borderRadius: 24 },
+  guideAvatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: theme.colors.primaryMuted, justifyContent: 'center', alignItems: 'center' },
+  guideAvatarText: { fontSize: 20, fontWeight: 'bold', color: theme.colors.primary },
+  guideBadge: { position: 'absolute', bottom: -2, right: -2, backgroundColor: theme.colors.success, width: 16, height: 16, borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
+  guideInfo: { flex: 1 },
+  guideRole: { fontSize: 10, fontWeight: '800', color: theme.colors.primary, letterSpacing: 0.5, marginBottom: 2 },
+  guideName: { fontSize: 16, fontWeight: '700', color: theme.colors.text, marginBottom: 2 },
+  guidePhone: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500' },
+  guideContactBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary + '15', justifyContent: 'center', alignItems: 'center' },
 
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyTitle: { fontSize: 20, fontWeight: '800', color: theme.colors.textSecondary, marginTop: 16, marginBottom: 8 },

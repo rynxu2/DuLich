@@ -29,6 +29,11 @@ public class FavoriteController {
         return ResponseEntity.ok(favoriteService.getUserFavorites(userId));
     }
 
+    @GetMapping("/user/{userId}/count")
+    public ResponseEntity<Long> getUserFavoriteCount(@PathVariable Long userId) {
+        return ResponseEntity.ok(favoriteService.getUserFavoriteCount(userId));
+    }
+
     /** POST /favorites — add favorite { userId, tourId } */
     @PostMapping
     public ResponseEntity<Favorite> addFavorite(@RequestBody Map<String, Long> body) {
