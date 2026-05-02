@@ -11,7 +11,7 @@
  */
 import apiClient from './client';
 
-export type PaymentMethod = 'VNPAY' | 'MOMO' | 'ZALOPAY' | 'STRIPE' | 'CASH';
+export type PaymentMethod = 'CASH';
 export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
 export interface Payment {

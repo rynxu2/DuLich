@@ -149,7 +149,7 @@ export default function MyTripsScreen({ navigation }: Props) {
                 <Text style={styles.btnOutlineText}>Hủy chuyến</Text>
               </TouchableOpacity>
             )}
-            {item.status === 'PENDING' && item.paymentStatus === 'UNPAID' && item.paymentMethod !== 'CASH' && (
+            {item.status === 'PENDING' && item.paymentStatus === 'UNPAID' && (
               <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: '#F59E0B' }]} onPress={() => navigation.navigate('Payment', { bookingId: item.id })}>
                 <Text style={styles.btnPrimaryText}>Thanh toán ngay</Text>
               </TouchableOpacity>
@@ -159,7 +159,7 @@ export default function MyTripsScreen({ navigation }: Props) {
                 <Text style={styles.btnPrimaryText}>Đánh giá</Text>
               </TouchableOpacity>
             )}
-            {!(item.status === 'PENDING' && item.paymentStatus === 'UNPAID' && item.paymentMethod !== 'CASH') && !isCompleted && !canCancel && (
+            {!(item.status === 'PENDING' && item.paymentStatus === 'UNPAID') && !isCompleted && !canCancel && (
               <TouchableOpacity style={styles.btnOutline} onPress={() => navigation.navigate('Itinerary', { bookingId: item.id, tourTitle: tourName })}>
                 <Text style={styles.btnOutlineText}>Xem chi tiết</Text>
               </TouchableOpacity>

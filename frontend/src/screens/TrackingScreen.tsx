@@ -8,6 +8,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { wsService } from '../services/websocket';
 import { theme } from '../theme';
+import useAuthStore from '../store/useAuthStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Tracking'>;
@@ -40,7 +41,26 @@ export default function TrackingScreen({ navigation, route }: Props) {
     { latitude: 16.0700, longitude: 108.2200 },
   ]);
 
+  const { user } = useAuthStore();
   const slideAnim = useRef(new Animated.Value(200)).current;
+
+  // Simulate Guide GPS
+  const simulateGps = () => {
+    let lat = guideLocation.latitude;
+    let lng = guideLocation.longitude;
+    
+    // Simulate slight movement
+    lat += (Math.random() - 0.5) * 0.005;
+    lng += (Math.random() - 0.5) * 0.005;
+
+    wsService.publish('/app/tracking.update', {
+      guideId: user?.id || 1,
+      tourId: parseInt(tourId),
+      lat: lat,
+      lng: lng,
+      timestamp: new Date().toISOString()
+    });
+  };
 
   useEffect(() => {
     // Slide up bottom panel
@@ -53,21 +73,21 @@ export default function TrackingScreen({ navigation, route }: Props) {
     anim.start();
 
     // Subscribe to STOMP topic for live guide locations
-    const topic = `/topic/tracking.${tourId}`;
+    const topic = `/topic/tracking`;
     const subId = wsService.subscribe(topic, (msg: any) => {
-      if (msg && msg.latitude && msg.longitude) {
+      if (msg && msg.lat && msg.lng && msg.tourId == tourId) {
         setGuideLocation({
-          latitude: msg.latitude,
-          longitude: msg.longitude,
+          latitude: msg.lat,
+          longitude: msg.lng,
         });
 
         // Optionally update polyline
-        setRouteCoordinates(prev => [...prev, { latitude: msg.latitude, longitude: msg.longitude }]);
+        setRouteCoordinates(prev => [...prev, { latitude: msg.lat, longitude: msg.lng }]);
 
         // Animate map to new location smoothly
         mapRef.current?.animateToRegion({
-          latitude: msg.latitude,
-          longitude: msg.longitude,
+          latitude: msg.lat,
+          longitude: msg.lng,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         }, 1000);
@@ -116,6 +136,9 @@ export default function TrackingScreen({ navigation, route }: Props) {
           <View style={styles.liveIndicator} />
           <Text style={styles.headerTitle}>Live Tracking</Text>
         </View>
+        <TouchableOpacity style={styles.simulateBtn} onPress={simulateGps}>
+           <Icon name="crosshairs-gps" size={24} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Info Panel */}
@@ -189,8 +212,10 @@ const styles = StyleSheet.create({
   },
   bottomPanel: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: theme.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    paddingHorizontal: 24, paddingTop: 12, elevation: 10, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10,
+    backgroundColor: theme.colors.surface,
+    borderTopLeftRadius: theme.borderRadius.xl, borderTopRightRadius: theme.borderRadius.xl,
+    padding: 24, paddingBottom: 40,
+    elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10,
   },
   dragHandle: {
     width: 40, height: 5, borderRadius: 3, backgroundColor: theme.colors.border,

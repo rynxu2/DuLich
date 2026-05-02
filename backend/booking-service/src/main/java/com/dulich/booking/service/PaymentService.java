@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,55 +21,53 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final TransactionRepository transactionRepository;
 
+    /**
+     * Record a cash payment for a booking.
+     * Cash payments are marked PENDING until confirmed by admin/staff.
+     */
     @Transactional
-    public Payment processPayment(Long bookingId, Long userId, BigDecimal amount, String paymentMethod) {
+    public Payment processPayment(Long bookingId, Long userId, BigDecimal amount) {
         Payment payment = Payment.builder()
             .bookingId(bookingId)
             .userId(userId)
             .amount(amount)
-            .paymentMethod(paymentMethod != null ? paymentMethod : "CASH")
+            .paymentMethod("CASH")
             .status("PENDING")
             .build();
         payment = paymentRepository.save(payment);
 
-        try {
-            String txId = simulatePayment(payment);
-            payment.setStatus("SUCCESS");
-            payment.setProviderTransactionId(txId);
-            payment.setPaidAt(LocalDateTime.now());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            Transaction tx = Transaction.builder()
-                .paymentId(payment.getId())
-                .type("CHARGE")
-                .amount(payment.getAmount())
-                .status("SUCCESS")
-                .providerData(txId)
-                .build();
-            transactionRepository.save(tx);
-
-            log.info("Payment SUCCESS: paymentId={}, bookingId={}", payment.getId(), bookingId);
-        } catch (Exception e) {
-            payment.setStatus("FAILED");
-            payment.setProviderResponse(e.getMessage());
-            payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-            log.error("Payment FAILED: bookingId={}, reason={}", bookingId, e.getMessage());
-        }
-
+        log.info("Cash payment recorded for booking {}: paymentId={}", bookingId, payment.getId());
         return payment;
     }
 
-    private String simulatePayment(Payment payment) {
-        String prefix = switch (payment.getPaymentMethod().toUpperCase()) {
-            case "VNPAY" -> "VNPAY";
-            case "MOMO" -> "MOMO";
-            case "ZALOPAY" -> "ZALO";
-            default -> "CASH";
-        };
-        log.info("Processing {} payment: {} VND", prefix, payment.getAmount());
-        return prefix + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    /**
+     * Confirm a cash payment (called by admin/staff when cash is received).
+     */
+    @Transactional
+    public Payment confirmCashPayment(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
+
+        if (!"PENDING".equals(payment.getStatus())) {
+            throw new IllegalStateException("Payment already processed with status: " + payment.getStatus());
+        }
+
+        payment.setStatus("SUCCESS");
+        payment.setPaidAt(LocalDateTime.now());
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        Transaction tx = Transaction.builder()
+            .paymentId(payment.getId())
+            .type("CHARGE")
+            .amount(payment.getAmount())
+            .status("SUCCESS")
+            .providerData("CASH_CONFIRMED")
+            .build();
+        transactionRepository.save(tx);
+        paymentRepository.save(payment);
+
+        log.info("Cash payment {} confirmed for booking {}", paymentId, payment.getBookingId());
+        return payment;
     }
 
     public Payment getById(Long id) {

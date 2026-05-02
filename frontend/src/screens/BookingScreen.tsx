@@ -22,10 +22,7 @@ type Props = {
 };
 
 const PAYMENT_METHODS = [
-  { key: 'CASH', label: 'Tiền mặt', icon: 'cash-multiple', color: '#10B981', bg: '#D1FAE5' },
-  { key: 'VNPAY', label: 'VNPay', icon: 'credit-card-scan', color: '#3B82F6', bg: '#DBEAFE' },
-  { key: 'MOMO', label: 'MoMo', icon: 'wallet', color: '#db2777', bg: '#fce7f3' },
-  { key: 'ZALOPAY', label: 'ZaloPay', icon: 'qrcode', color: '#2563EB', bg: '#EFF6FF' },
+  { key: 'CASH', label: 'Tiền mặt', icon: 'cash', color: '#16A34A', bg: '#DCFCE7' },
 ];
 
 export default function BookingScreen({ navigation, route }: Props) {
@@ -44,8 +41,6 @@ export default function BookingScreen({ navigation, route }: Props) {
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
-  const [bookingSuccess, setBookingSuccess] = useState(false);
-  const [newBookingId, setNewBookingId] = useState<number | null>(null);
 
   const totalTravelers = adults + children;
   const fallbackTotal = tourPrice * totalTravelers;
@@ -80,69 +75,11 @@ export default function BookingScreen({ navigation, route }: Props) {
         travelers: totalTravelers, specialRequests: note || undefined,
         paymentMethod, promoCode: appliedPromo || undefined,
       });
-      setNewBookingId(res.id);
-      setBookingSuccess(true);
+      navigation.replace('Payment', { bookingId: res.id });
     } catch {
       Alert.alert('Lỗi', 'Không thể đặt tour lúc này. Vui lòng thử lại.');
     }
   };
-
-  if (bookingSuccess) {
-    return (
-      <View style={[styles.successContainer, { paddingTop: insets.top }]}>
-        <View style={styles.successCircle}>
-          <Icon name="check" size={80} color="#fff" />
-        </View>
-        <Text style={styles.successTitle}>Đặt Tour Thành Công!</Text>
-        <Text style={styles.successSubtitle}>Mã đơn hàng: #{newBookingId || '10293'}</Text>
-
-        <View style={styles.receiptCard}>
-           <Text style={styles.receiptTourName}>{tourTitle}</Text>
-           <View style={styles.receiptDashedLine} />
-           
-           <View style={styles.receiptRow}>
-             <Text style={styles.receiptLabel}>Ngày đi</Text>
-             <Text style={styles.receiptValue}>{bookingDate}</Text>
-           </View>
-           <View style={styles.receiptRow}>
-             <Text style={styles.receiptLabel}>Khách</Text>
-             <Text style={styles.receiptValue}>{adults} người lớn{children > 0 ? `, ${children} trẻ em` : ''}</Text>
-           </View>
-           <View style={styles.receiptRow}>
-             <Text style={styles.receiptLabel}>Thanh toán qua</Text>
-             <Text style={styles.receiptValue}>{PAYMENT_METHODS.find(m => m.key === paymentMethod)?.label}</Text>
-           </View>
-           <View style={[styles.receiptRow, { marginTop: 12, marginBottom: 0 }]}>
-             <Text style={styles.receiptLabelTotal}>Tổng cộng</Text>
-             <Text style={styles.receiptValueTotal}>{formatPrice(finalPrice)}</Text>
-           </View>
-        </View>
-
-        <Text style={styles.successNote}>Thông tin chi tiết đã được gửi đến email của bạn.</Text>
-
-        <View style={styles.successActionRow}>
-          <TouchableOpacity style={styles.successBtnOutline} onPress={() => navigation.popToTop()}>
-            <Text style={styles.successBtnOutlineText}>Về Trang Chủ</Text>
-          </TouchableOpacity>
-          {paymentMethod !== 'CASH' && newBookingId ? (
-            <TouchableOpacity style={styles.successBtnPrimary} onPress={() => {
-              // @ts-ignore
-              navigation.replace('Payment', { bookingId: newBookingId });
-            }}>
-              <Text style={styles.successBtnPrimaryText}>Thanh Toán Ngay</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.successBtnPrimary} onPress={() => {
-              // @ts-ignore
-              navigation.navigate('MainTabs', { screen: 'MyTripsTab' });
-            }}>
-              <Text style={styles.successBtnPrimaryText}>Xem Chuyến Đi</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -321,7 +258,7 @@ export default function BookingScreen({ navigation, route }: Props) {
 
           <View style={styles.policyFooterRow}>
             <Icon name="shield-check" size={16} color={theme.colors.success} />
-            <Text style={styles.policyFooterText}>Thanh toán an toàn, bảo mật 100%.</Text>
+            <Text style={styles.policyFooterText}>Thanh toán tiền mặt khi gặp hướng dẫn viên.</Text>
           </View>
 
         </ScrollView>
@@ -404,23 +341,4 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.7 },
   checkoutBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 
-  // Success Screen
-  successContainer: { flex: 1, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  successCircle: { width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginBottom: 32 },
-  successTitle: { fontSize: 32, fontWeight: '900', color: '#fff', marginBottom: 8, textAlign: 'center' },
-  successSubtitle: { fontSize: 16, color: 'rgba(255,255,255,0.8)', marginBottom: 40 },
-  receiptCard: { backgroundColor: '#fff', width: '100%', borderRadius: 20, padding: 24, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, marginBottom: 24 },
-  receiptTourName: { fontSize: 18, fontWeight: '800', color: theme.colors.text, textAlign: 'center', marginBottom: 20, lineHeight: 26 },
-  receiptDashedLine: { height: 1, borderWidth: 1, borderColor: theme.colors.border, borderStyle: 'dashed', marginBottom: 20, marginHorizontal: -10 },
-  receiptRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  receiptLabel: { fontSize: 14, color: theme.colors.textSecondary },
-  receiptValue: { fontSize: 14, fontWeight: '700', color: theme.colors.text },
-  receiptLabelTotal: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  receiptValueTotal: { fontSize: 20, fontWeight: '900', color: theme.colors.primary },
-  successNote: { fontSize: 14, color: 'rgba(255,255,255,0.9)', textAlign: 'center', marginBottom: 40, paddingHorizontal: 20 },
-  successActionRow: { flexDirection: 'row', gap: 16, width: '100%' },
-  successBtnOutline: { flex: 1, paddingVertical: 16, borderRadius: 24, borderWidth: 1, borderColor: '#fff', alignItems: 'center' },
-  successBtnOutlineText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  successBtnPrimary: { flex: 1, paddingVertical: 16, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center' },
-  successBtnPrimaryText: { color: theme.colors.primary, fontSize: 16, fontWeight: '700' },
 });

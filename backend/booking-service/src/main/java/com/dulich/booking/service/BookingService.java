@@ -15,6 +15,7 @@ import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,7 @@ public class BookingService {
     private final TourServiceClient tourServiceClient;
     private final ItineraryServiceClient itineraryServiceClient;
     private final IdentityServiceClient identityServiceClient;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Create a new booking with circuit breaker protection.
@@ -78,6 +80,13 @@ public class BookingService {
 
         Booking savedBooking = bookingRepository.save(booking);
         log.info("Booking {} created with PENDING status for tourId={}", savedBooking.getId(), request.getTourId());
+        
+        try {
+            messagingTemplate.convertAndSend("/topic/notifications", 
+                Map.of("type", "NEW_BOOKING", "bookingId", savedBooking.getId(), "message", "New booking received!"));
+        } catch (Exception e) {
+            log.error("Failed to send WebSocket notification", e);
+        }
 
         return savedBooking;
     }

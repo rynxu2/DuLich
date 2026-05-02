@@ -26,7 +26,7 @@ export interface Booking {
   contactName?: string;
   contactPhone?: string;
   specialRequests?: string;
-  paymentMethod: string;     // CASH | VNPAY | MOMO | ZALOPAY
+  paymentMethod: string;     // CASH
   paymentStatus: string;     // UNPAID | PAID | REFUNDED
   paidAt?: string;
   createdAt: string;
@@ -53,7 +53,7 @@ export interface CreateBookingData {
   contactName?: string;
   contactPhone?: string;
   specialRequests?: string;
-  paymentMethod?: string;    // CASH | VNPAY | MOMO | ZALOPAY
+  paymentMethod?: string;    // CASH
   promoCode?: string;        // Added for pricing evaluation integration
 }
 

@@ -9,6 +9,8 @@ import {
   DollarSign, BarChart3, LogOut, Menu, X, Plane, Star, Bell, UserCheck
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -28,8 +30,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => { restore(); }, [restore]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8080/booking-ws'),
+      reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+    });
+
+    client.onConnect = () => {
+      console.log('Connected to WebSocket for Notifications');
+      client.subscribe('/topic/notifications', (msg) => {
+        try {
+          const body = JSON.parse(msg.body);
+          if (body.type === 'NEW_BOOKING') {
+            setUnreadCount((prev) => prev + 1);
+            setToastMessage(`🎉 Có đơn đặt tour mới (#${body.bookingId})!`);
+            setTimeout(() => setToastMessage(null), 5000);
+          }
+        } catch (e) {
+          console.error('Error parsing notification', e);
+        }
+      });
+    };
+
+    client.activate();
+    return () => { client.deactivate(); };
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) router.push('/login');
@@ -113,12 +147,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {NAV_ITEMS.find((n) => pathname === n.href || (n.href !== '/admin' && pathname.startsWith(n.href)))?.label || 'Dashboard'}
           </h1>
           <div className="flex items-center gap-4 ml-auto">
+            <Link href="/admin/notifications" className="relative p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-slate-950 animate-pulse" />
+              )}
+            </Link>
             <ThemeToggle />
           </div>
         </header>
 
         <div className="p-6">{children}</div>
       </main>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 shadow-xl rounded-2xl p-4 flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-50 dark:bg-green-500/20 rounded-full flex items-center justify-center text-green-600 dark:text-green-400">
+              <Bell size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900 dark:text-white">Thông báo mới</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{toastMessage}</p>
+            </div>
+            <button onClick={() => setToastMessage(null)} className="ml-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

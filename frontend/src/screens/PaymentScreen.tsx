@@ -24,7 +24,7 @@ export default function PaymentScreen({ navigation, route }: Props) {
     return (
       <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 12, color: theme.colors.textLight }}>Đang tải thông tin thanh toán...</Text>
+        <Text style={{ marginTop: 12, color: theme.colors.textLight }}>Đang tải thông tin...</Text>
       </View>
     );
   }
@@ -41,33 +41,27 @@ export default function PaymentScreen({ navigation, route }: Props) {
     );
   }
 
-  const getPaymentLogo = (method: string) => {
-    switch(method) {
-      case 'VNPAY': return 'credit-card-outline';
-      case 'MOMO': return 'wallet-outline';
-      case 'ZALOPAY': return 'cellphone';
-      default: return 'cash';
-    }
-  };
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Icon name="arrow-left" size={24} color={theme.colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Thanh Toán Đơn Hàng</Text>
+        <Text style={styles.headerTitle}>Xác Nhận Đặt Tour</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.alertBox}>
-          <Icon name="information" size={20} color={theme.colors.warning} />
-          <Text style={styles.alertText}>
-            Vui lòng hoàn tất thanh toán trong 30 phút để giữ chỗ. Quá thời gian, đơn sẽ tự động hủy.
-          </Text>
+        {/* Success Icon */}
+        <View style={styles.successSection}>
+          <View style={styles.successCircle}>
+            <Icon name="check-circle" size={64} color={theme.colors.success} />
+          </View>
+          <Text style={styles.successTitle}>Đặt tour thành công!</Text>
+          <Text style={styles.successSubtitle}>Vui lòng thanh toán tiền mặt khi gặp hướng dẫn viên</Text>
         </View>
 
+        {/* Booking Info Card */}
         <View style={styles.bookingCard}>
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Mã Đơn (Booking ID)</Text>
@@ -82,8 +76,14 @@ export default function PaymentScreen({ navigation, route }: Props) {
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Phương thức</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name={getPaymentLogo(booking.paymentMethod)} size={18} color={theme.colors.primary} />
-              <Text style={styles.cardValue}>{booking.paymentMethod}</Text>
+              <Icon name="cash" size={18} color={theme.colors.success} />
+              <Text style={styles.cardValue}>Tiền mặt</Text>
+            </View>
+          </View>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardLabel}>Trạng thái</Text>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusText}>Chờ thanh toán</Text>
             </View>
           </View>
           <View style={styles.divider} />
@@ -93,31 +93,42 @@ export default function PaymentScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        {/* QR Code Placeholder */}
-        <View style={styles.qrSection}>
-          <Text style={styles.qrTitle}>Quét Mã QR</Text>
-          <Text style={styles.qrSubtitle}>Mở ứng dụng {booking.paymentMethod} để quét mã thanh toán</Text>
-          <View style={styles.qrBox}>
-            <Icon name="qrcode-scan" size={160} color={theme.colors.primary} />
-            <Text style={styles.qrNote}>Mã QR tự động làm mới sau 5 phút</Text>
+        {/* Cash Payment Instructions */}
+        <View style={styles.instructionCard}>
+          <Text style={styles.instructionTitle}>Hướng dẫn thanh toán</Text>
+          
+          <View style={styles.stepRow}>
+            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>1</Text></View>
+            <Text style={styles.stepText}>Lưu lại mã đơn hàng <Text style={{ fontWeight: '700' }}>#{booking.id}</Text></Text>
           </View>
+          
+          <View style={styles.stepRow}>
+            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>2</Text></View>
+            <Text style={styles.stepText}>Thanh toán tiền mặt khi gặp hướng dẫn viên vào ngày khởi hành</Text>
+          </View>
+          
+          <View style={styles.stepRow}>
+            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>3</Text></View>
+            <Text style={styles.stepText}>Nhận biên lai xác nhận thanh toán từ nhân viên</Text>
+          </View>
+        </View>
+
+        {/* Note */}
+        <View style={styles.alertBox}>
+          <Icon name="information" size={20} color={theme.colors.warning} />
+          <Text style={styles.alertText}>
+            Đơn hàng sẽ được giữ chỗ trong 24 giờ. Nếu không thanh toán, đơn sẽ tự động hủy.
+          </Text>
         </View>
 
       </ScrollView>
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => navigation.popToTop()}>
-          <Text style={styles.cancelButtonText}>Thanh toán sau</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.confirmButton}
-          onPress={() => {
-            // Mock payment confirm
-            navigation.popToTop();
-          }}>
-          <Text style={styles.confirmButtonText}>Đã Thanh Toán</Text>
+          style={styles.homeButton}
+          onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })}>
+          <Icon name="home" size={20} color="#fff" />
+          <Text style={styles.homeButtonText}>Về Trang Chủ</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -136,41 +147,52 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 8 },
   headerTitle: { ...theme.typography.h3, color: theme.colors.text },
-  content: { padding: 20 },
-  alertBox: {
-    flexDirection: 'row', gap: 10, backgroundColor: theme.colors.warning + '15',
-    padding: 16, borderRadius: theme.borderRadius.md, marginBottom: 20,
-    borderWidth: 1, borderColor: theme.colors.warning + '40',
-  },
-  alertText: { ...theme.typography.bodySmall, color: theme.colors.text, flex: 1, lineHeight: 20 },
+  content: { padding: 20, paddingBottom: 100 },
+
+  successSection: { alignItems: 'center', paddingVertical: 24, marginBottom: 24 },
+  successCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: theme.colors.success + '15', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  successTitle: { ...theme.typography.h2, color: theme.colors.text, marginBottom: 8 },
+  successSubtitle: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center' },
+
   bookingCard: {
     backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: 20,
     elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
   cardLabel: { ...theme.typography.body, color: theme.colors.textSecondary },
   cardValue: { ...theme.typography.body, color: theme.colors.text, fontWeight: '600' },
+  statusBadge: { backgroundColor: theme.colors.warning + '20', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  statusText: { ...theme.typography.caption, color: theme.colors.warning, fontWeight: '700' },
   divider: { height: 1, backgroundColor: theme.colors.border, marginVertical: 12 },
   totalLabel: { ...theme.typography.h3, color: theme.colors.text },
   totalValue: { fontSize: 24, fontWeight: '800', color: theme.colors.accent },
-  qrSection: { alignItems: 'center', backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: 24, elevation: 1 },
-  qrTitle: { ...theme.typography.h3, color: theme.colors.text, marginBottom: 6 },
-  qrSubtitle: { ...theme.typography.bodySmall, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 24 },
-  qrBox: { alignItems: 'center', justifyContent: 'center', padding: 24, borderWidth: 2, borderColor: theme.colors.border, borderRadius: theme.borderRadius.md, borderStyle: 'dashed' },
-  qrNote: { ...theme.typography.caption, color: theme.colors.textLight, marginTop: 16 },
+
+  instructionCard: {
+    backgroundColor: theme.colors.surface, borderRadius: theme.borderRadius.lg, padding: 20,
+    elevation: 1, marginBottom: 20,
+  },
+  instructionTitle: { ...theme.typography.h3, color: theme.colors.text, marginBottom: 16 },
+  stepRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
+  stepNumber: { width: 28, height: 28, borderRadius: 14, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center' },
+  stepNumberText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  stepText: { ...theme.typography.body, color: theme.colors.text, flex: 1, lineHeight: 22 },
+
+  alertBox: {
+    flexDirection: 'row', gap: 10, backgroundColor: theme.colors.warning + '15',
+    padding: 16, borderRadius: theme.borderRadius.md,
+    borderWidth: 1, borderColor: theme.colors.warning + '40',
+  },
+  alertText: { ...theme.typography.bodySmall, color: theme.colors.text, flex: 1, lineHeight: 20 },
+
   bottomBar: {
-    flexDirection: 'row', padding: 20, gap: 12, backgroundColor: theme.colors.surface,
+    padding: 20, backgroundColor: theme.colors.surface,
     borderTopWidth: 1, borderTopColor: theme.colors.border,
   },
-  cancelButton: {
-    flex: 1, paddingVertical: 14, borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.surfaceVariant, alignItems: 'center',
+  homeButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 14, borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary,
   },
-  cancelButtonText: { ...theme.typography.button, color: theme.colors.text },
-  confirmButton: {
-    flex: 2, paddingVertical: 14, borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.primary, alignItems: 'center',
-  },
-  confirmButtonText: { ...theme.typography.button, color: '#fff' },
+  homeButtonText: { ...theme.typography.button, color: '#fff' },
 });
