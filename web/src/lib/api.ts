@@ -149,6 +149,9 @@ export const expensesApi = {
   getPending: () => apiClient.get('/expenses/pending'),
   getByTour: (tourId: number) => apiClient.get(`/expenses/tour/${tourId}`),
   getById: (id: number) => apiClient.get(`/expenses/${id}`),
+  create: (data: { tourId: number; category: string; amount: number; description?: string }) =>
+    apiClient.post('/expenses', data),
+  update: (id: number, data: any) => apiClient.put(`/expenses/${id}`, data),
   approve: (id: number) => apiClient.put(`/expenses/${id}/approve`),
   reject: (id: number, reason?: string) => apiClient.put(`/expenses/${id}/reject`, { reason }),
 };
