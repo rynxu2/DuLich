@@ -41,6 +41,12 @@ public class TourController {
         return ResponseEntity.ok(tourService.getAllTours());
     }
 
+    /** Batch fetch tours by IDs — used by booking-service to avoid N+1 */
+    @GetMapping("/batch")
+    public ResponseEntity<List<Tour>> getToursByIds(@RequestParam List<Long> ids) {
+        return ResponseEntity.ok(tourService.getToursByIds(ids));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Tour> getTourById(@PathVariable Long id) {
         try {

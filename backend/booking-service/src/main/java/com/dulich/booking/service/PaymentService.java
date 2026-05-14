@@ -41,6 +41,52 @@ public class PaymentService {
     }
 
     /**
+     * Record a SePay payment for a booking.
+     * Payment starts in PROCESSING state — updated to SUCCESS/FAILED via webhook.
+     */
+    @Transactional
+    public Payment processSepayPayment(Long bookingId, Long userId, BigDecimal amount,
+                                        String checkoutUrl, Long orderCode) {
+        Payment payment = Payment.builder()
+            .bookingId(bookingId)
+            .userId(userId)
+            .amount(amount)
+            .paymentMethod("SEPAY")
+            .status("PROCESSING")
+            .providerTransactionId(String.valueOf(orderCode))
+            .providerResponse(checkoutUrl)
+            .build();
+        payment = paymentRepository.save(payment);
+
+        log.info("SePay payment recorded for booking {}: paymentId={}, orderCode={}",
+                bookingId, payment.getId(), orderCode);
+        return payment;
+    }
+
+    /**
+     * Record a VTC Pay card payment for a booking.
+     * Payment starts in PROCESSING state — updated via IPN or return URL callback.
+     */
+    @Transactional
+    public Payment processVtcpayPayment(Long bookingId, Long userId, BigDecimal amount,
+                                         String checkoutUrl, String referenceNumber) {
+        Payment payment = Payment.builder()
+            .bookingId(bookingId)
+            .userId(userId)
+            .amount(amount)
+            .paymentMethod("VTCPAY")
+            .status("PROCESSING")
+            .providerTransactionId(referenceNumber)
+            .providerResponse(checkoutUrl)
+            .build();
+        payment = paymentRepository.save(payment);
+
+        log.info("VTC Pay payment recorded for booking {}: paymentId={}, refNumber={}",
+                bookingId, payment.getId(), referenceNumber);
+        return payment;
+    }
+
+    /**
      * Confirm a cash payment (called by admin/staff when cash is received).
      */
     @Transactional
@@ -68,6 +114,43 @@ public class PaymentService {
 
         log.info("Cash payment {} confirmed for booking {}", paymentId, payment.getBookingId());
         return payment;
+    }
+
+    /**
+     * Update payment status — used by webhook handler.
+     */
+    @Transactional
+    public Payment updatePaymentStatus(Long paymentId, String status, String providerData) {
+        Payment payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new RuntimeException("Payment not found: " + paymentId));
+
+        payment.setStatus(status);
+        payment.setProviderResponse(providerData);
+        payment.setUpdatedAt(LocalDateTime.now());
+
+        if ("SUCCESS".equals(status)) {
+            payment.setPaidAt(LocalDateTime.now());
+
+            Transaction tx = Transaction.builder()
+                .paymentId(payment.getId())
+                .type("CHARGE")
+                .amount(payment.getAmount())
+                .status("SUCCESS")
+                .providerData("SEPAY_WEBHOOK")
+                .build();
+            transactionRepository.save(tx);
+        }
+
+        paymentRepository.save(payment);
+        log.info("Payment {} status updated to {}", paymentId, status);
+        return payment;
+    }
+
+    /**
+     * Find payment by provider transaction ID (SePay orderCode).
+     */
+    public Payment findByProviderTransactionId(String txnId) {
+        return paymentRepository.findByProviderTransactionId(txnId).orElse(null);
     }
 
     public Payment getById(Long id) {

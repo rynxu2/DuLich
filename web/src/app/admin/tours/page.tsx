@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { toursApi, storageApi } from '@/lib/api';
-import { Plus, Pencil, Trash2, Search, MapPin, X, Image as ImageIcon, Map, Star, CalendarDays, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, MapPin, X, Image as ImageIcon, Map, Star, CalendarDays, Users, Baby, GripVertical, Crown, Images } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
+
+interface GalleryImage {
+  id?: number;
+  imageUrl: string;
+  caption: string;
+  displayOrder: number;
+}
 
 interface TourForm {
   title: string;
@@ -13,14 +20,16 @@ interface TourForm {
   description: string;
   category: string;
   imageUrl: string;
-  maxParticipants: number;
+  galleryImages: GalleryImage[];
+  maxAdults: number;
+  maxChildren: number;
   isActive: boolean;
   itinerary: Array<{ title: string; content: string }>;
 }
 
 const EMPTY_FORM: TourForm = {
   title: '', location: '', duration: 1, price: 0, description: '',
-  category: '', imageUrl: '', maxParticipants: 30, isActive: true, 
+  category: '', imageUrl: '', galleryImages: [], maxAdults: 20, maxChildren: 10, isActive: true, 
   itinerary: [{ title: 'Ngày 1', content: '' }]
 };
 
@@ -52,23 +61,92 @@ export default function ToursPage() {
   const [form, setForm] = useState<TourForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingCount, setUploadingCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const pageSize = 10;
 
-  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleUploadImages = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
     
+    const fileArray = Array.from(files);
     setUploading(true);
+    setUploadingCount(fileArray.length);
+    
     try {
-      const res = await storageApi.upload(file, 'tour', String(editId || 0));
-      setForm({ ...form, imageUrl: res.data.url });
-    } catch (err) {
+      const results = await Promise.allSettled(
+        fileArray.map(file => storageApi.upload(file, 'tour', String(editId || 0)))
+      );
+      
+      const newImages: GalleryImage[] = [];
+      const currentLen = form.galleryImages.length;
+      
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          newImages.push({
+            imageUrl: result.value.data.url,
+            caption: '',
+            displayOrder: currentLen + i,
+          });
+        }
+      });
+      
+      const failCount = results.filter(r => r.status === 'rejected').length;
+      if (failCount > 0) alert(`${failCount} ảnh không tải được`);
+      
+      const updatedGallery = [...form.galleryImages, ...newImages];
+      setForm({
+        ...form,
+        galleryImages: updatedGallery,
+        imageUrl: form.imageUrl || (updatedGallery.length > 0 ? updatedGallery[0].imageUrl : ''),
+      });
+    } catch {
       alert('Lỗi khi tải ảnh lên');
     } finally {
       setUploading(false);
+      setUploadingCount(0);
     }
+    e.target.value = '';
   };
+
+  const removeGalleryImage = (index: number) => {
+    const updated = form.galleryImages.filter((_, i) => i !== index)
+      .map((img, i) => ({ ...img, displayOrder: i }));
+    const removedWasThumbnail = form.galleryImages[index]?.imageUrl === form.imageUrl;
+    setForm({
+      ...form,
+      galleryImages: updated,
+      imageUrl: removedWasThumbnail ? (updated[0]?.imageUrl || '') : form.imageUrl,
+    });
+  };
+
+  const setAsThumbnail = (index: number) => {
+    setForm({ ...form, imageUrl: form.galleryImages[index].imageUrl });
+  };
+
+  const updateCaption = (index: number, caption: string) => {
+    const updated = [...form.galleryImages];
+    updated[index] = { ...updated[index], caption };
+    setForm({ ...form, galleryImages: updated });
+  };
+
+  const handleDragStart = (index: number) => setDragIdx(index);
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === index) return;
+    const updated = [...form.galleryImages];
+    const [moved] = updated.splice(dragIdx, 1);
+    updated.splice(index, 0, moved);
+    const reordered = updated.map((img, i) => ({ ...img, displayOrder: i }));
+    setDragIdx(index);
+    setForm({
+      ...form,
+      galleryImages: reordered,
+      imageUrl: reordered[0]?.imageUrl || '',
+    });
+  };
+  const handleDragEnd = () => setDragIdx(null);
 
   const fetchTours = async () => {
     setLoading(true);
@@ -103,6 +181,19 @@ export default function ToursPage() {
 
   const openEdit = (tour: any) => {
     setEditId(tour.id);
+    const totalMax = tour.maxParticipants || 30;
+    const adults = tour.maxAdults ?? Math.ceil(totalMax * 0.67);
+    const children = tour.maxChildren ?? (totalMax - adults);
+    
+    const existingImages: GalleryImage[] = (tour.images || [])
+      .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      .map((img: any, i: number) => ({
+        id: img.id,
+        imageUrl: img.imageUrl,
+        caption: img.caption || '',
+        displayOrder: i,
+      }));
+    
     setForm({
       title: tour.title || '',
       location: tour.location || '',
@@ -111,11 +202,27 @@ export default function ToursPage() {
       description: tour.description || '',
       category: tour.category || '',
       imageUrl: tour.imageUrl || '',
-      maxParticipants: tour.maxParticipants || 30,
+      galleryImages: existingImages,
+      maxAdults: adults,
+      maxChildren: children,
       isActive: tour.isActive !== false,
-      itinerary: tour.itinerary 
-        ? Object.entries(tour.itinerary).map(([k, v]) => ({ title: k, content: String(v) }))
-        : [{ title: 'Ngày 1', content: '' }],
+      itinerary: (() => {
+        if (!tour.itinerary) return [{ title: 'Ngày 1', content: '' }];
+        // Handle old nested format: {days: [{day: 1, activities: [...]}]}
+        if (tour.itinerary.days && Array.isArray(tour.itinerary.days)) {
+          return tour.itinerary.days.map((d: any) => ({
+            title: `Ngày ${d.day || ''}`,
+            content: Array.isArray(d.activities) ? d.activities.join('\n') : String(d.activities || ''),
+          }));
+        }
+        // Handle flat map format: {"Ngày 1": "content text"}
+        return Object.entries(tour.itinerary)
+          .filter(([k]) => k !== 'days')
+          .map(([k, v]) => ({
+            title: k,
+            content: typeof v === 'string' ? v : (Array.isArray(v) ? v.join('\n') : JSON.stringify(v)),
+          }));
+      })(),
     });
     setModalOpen(true);
   };
@@ -127,8 +234,18 @@ export default function ToursPage() {
     }
     setSaving(true);
     try {
+      const { maxAdults, maxChildren, galleryImages, ...rest } = form;
       const payload = {
-        ...form,
+        ...rest,
+        maxParticipants: maxAdults + maxChildren,
+        maxAdults,
+        maxChildren,
+        images: galleryImages.map((img, i) => ({
+          ...(img.id ? { id: img.id } : {}),
+          imageUrl: img.imageUrl,
+          caption: img.caption,
+          displayOrder: i,
+        })),
         itinerary: (form.itinerary || []).reduce((acc: any, curr: any) => {
           if (curr.title.trim()) acc[curr.title.trim()] = curr.content;
           return acc;
@@ -332,7 +449,7 @@ export default function ToursPage() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className={labelCls}>Thời Gian (ngày)</label>
                     <div className="relative">
@@ -342,17 +459,64 @@ export default function ToursPage() {
                     </div>
                   </div>
                   <div>
-                    <label className={labelCls}>Giá (VNĐ)</label>
+                    <label className={labelCls}>Giá Người Lớn (VNĐ)</label>
                     <input type="number" min={0} value={form.price} onChange={(e) => setForm({ ...form, price: +e.target.value })}
                       className={inputCls} />
                   </div>
-                  <div>
-                    <label className={labelCls}>Khách Tối Đa</label>
-                    <div className="relative">
-                      <input type="number" min={1} value={form.maxParticipants} onChange={(e) => setForm({ ...form, maxParticipants: +e.target.value })}
-                        className={inputCls + " pl-10"} />
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"><Users size={16} /></div>
+                </div>
+
+                {/* Giá trẻ em auto-calculated */}
+                {form.price > 0 && (
+                  <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-500/5 dark:to-orange-500/5 rounded-xl border border-amber-200/60 dark:border-amber-500/15">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-500/20 shrink-0">
+                      <Baby size={18} className="text-amber-600 dark:text-amber-400" />
                     </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Giá trẻ em (tự động)</p>
+                      <p className="text-xs text-amber-700/80 dark:text-amber-400/70 mt-0.5">Bằng 70% giá người lớn</p>
+                    </div>
+                    <span className="text-lg font-extrabold text-amber-700 dark:text-amber-300 tabular-nums">
+                      {new Intl.NumberFormat('vi-VN').format(Math.round(form.price * 0.7))}đ
+                    </span>
+                  </div>
+                )}
+
+                {/* Khách hàng: Người lớn / Trẻ em */}
+                <div>
+                  <label className={labelCls + " mb-3"}>Số Khách Tối Đa</label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="relative p-4 bg-blue-50/60 dark:bg-blue-500/5 rounded-xl border border-blue-200/60 dark:border-blue-500/15">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-500/20">
+                          <Users size={16} className="text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-blue-900 dark:text-blue-300">Người lớn</p>
+                          <p className="text-[10px] text-blue-600/70 dark:text-blue-400/60 uppercase tracking-wider font-medium">Adults</p>
+                        </div>
+                      </div>
+                      <input type="number" min={1} value={form.maxAdults} 
+                        onChange={(e) => setForm({ ...form, maxAdults: Math.max(1, +e.target.value) })}
+                        className={inputCls + " text-center text-lg font-bold !bg-white dark:!bg-slate-800"} />
+                    </div>
+                    <div className="relative p-4 bg-emerald-50/60 dark:bg-emerald-500/5 rounded-xl border border-emerald-200/60 dark:border-emerald-500/15">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-500/20">
+                          <Baby size={16} className="text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-emerald-900 dark:text-emerald-300">Trẻ em</p>
+                          <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/60 uppercase tracking-wider font-medium">Children</p>
+                        </div>
+                      </div>
+                      <input type="number" min={0} value={form.maxChildren} 
+                        onChange={(e) => setForm({ ...form, maxChildren: Math.max(0, +e.target.value) })}
+                        className={inputCls + " text-center text-lg font-bold !bg-white dark:!bg-slate-800"} />
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between px-4 py-2.5 bg-slate-100 dark:bg-slate-800/60 rounded-lg border border-slate-200/80 dark:border-slate-700/50">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Tổng khách tối đa</span>
+                    <span className="text-sm font-extrabold text-slate-900 dark:text-white tabular-nums">{form.maxAdults + form.maxChildren} khách</span>
                   </div>
                 </div>
                 
@@ -375,33 +539,131 @@ export default function ToursPage() {
                 </div>
                 
                 <div>
-                  <label className={labelCls}>Hình Ảnh Tour</label>
-                  {!form.imageUrl ? (
-                    <label className="cursor-pointer flex flex-col items-center justify-center w-full h-32 px-4 bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl transition-colors">
-                      <ImageIcon size={28} className="text-slate-400 mb-2" />
-                      <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                        {uploading ? 'Đang xử lý ảnh...' : 'Bấm để tải ảnh lên'}
-                      </span>
-                      <span className="text-xs text-slate-500 mt-1">PNG, JPG, WebP (Tối đa 5MB)</span>
-                      <input 
-                        type="file" 
-                        accept="image/*"
-                        className="hidden" 
-                        onChange={handleUploadImage}
-                        disabled={uploading}
-                      />
-                    </label>
-                  ) : (
-                    <div className="relative group rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
-                      <img src={form.imageUrl} alt="preview" className="w-full h-48 object-cover" />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                        <button 
-                          onClick={() => setForm({ ...form, imageUrl: '' })}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-2"
-                        >
-                          <Trash2 size={16} /> Gỡ ảnh này
-                        </button>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className={labelCls + " mb-0"}>Hình Ảnh Tour</label>
+                    <span className="text-xs font-medium px-2 py-1 bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400 rounded-lg flex items-center gap-1">
+                      <Images size={12} /> {form.galleryImages.length} ảnh
+                    </span>
+                  </div>
+
+                  {/* Upload area */}
+                  <label className={`cursor-pointer flex flex-col items-center justify-center w-full px-4 bg-slate-50 dark:bg-slate-800/50 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl transition-all hover:bg-blue-50/30 dark:hover:bg-blue-500/5 ${form.galleryImages.length > 0 ? 'h-20 py-3' : 'h-32 py-6'}`}>
+                    {uploading ? (
+                      <div className="flex items-center gap-3">
+                        <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Đang tải {uploadingCount} ảnh...</span>
                       </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Plus size={18} className="text-blue-500" />
+                          <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                            {form.galleryImages.length > 0 ? 'Thêm ảnh' : 'Bấm để tải ảnh lên'}
+                          </span>
+                        </div>
+                        {form.galleryImages.length === 0 && (
+                          <span className="text-xs text-slate-500 mt-1.5">PNG, JPG, WebP · Chọn nhiều ảnh cùng lúc</span>
+                        )}
+                      </>
+                    )}
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      multiple
+                      className="hidden" 
+                      onChange={handleUploadImages}
+                      disabled={uploading}
+                    />
+                  </label>
+
+                  {/* Gallery grid */}
+                  {form.galleryImages.length > 0 && (
+                    <div className="mt-4 space-y-3">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {form.galleryImages.map((img, index) => {
+                          const isThumbnail = img.imageUrl === form.imageUrl;
+                          return (
+                            <div
+                              key={index}
+                              draggable
+                              onDragStart={() => handleDragStart(index)}
+                              onDragOver={(e) => handleDragOver(e, index)}
+                              onDragEnd={handleDragEnd}
+                              className={`relative group rounded-xl overflow-hidden border-2 transition-all ${
+                                dragIdx === index 
+                                  ? 'border-blue-500 opacity-50 scale-95' 
+                                  : isThumbnail 
+                                    ? 'border-amber-400 dark:border-amber-500 shadow-md shadow-amber-100 dark:shadow-amber-900/20' 
+                                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
+                              }`}
+                            >
+                              <img src={img.imageUrl} alt={img.caption || `Ảnh ${index + 1}`} className="w-full h-28 object-cover" />
+                              
+                              {/* Thumbnail badge */}
+                              {isThumbnail && (
+                                <div className="absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-bold rounded-md shadow-sm">
+                                  <Crown size={10} /> Thumbnail
+                                </div>
+                              )}
+
+                              {/* Order badge */}
+                              <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-md bg-black/50 backdrop-blur-sm text-white text-[10px] font-bold flex items-center justify-center">
+                                {index + 1}
+                              </div>
+
+                              {/* Hover overlay with actions */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col justify-end p-2">
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => setAsThumbnail(index)}
+                                    title="Đặt làm ảnh đại diện"
+                                    className={`p-1.5 rounded-lg text-xs transition-colors ${
+                                      isThumbnail 
+                                        ? 'bg-amber-500 text-white cursor-default' 
+                                        : 'bg-white/20 hover:bg-amber-500 text-white backdrop-blur-sm'
+                                    }`}
+                                  >
+                                    <Crown size={14} />
+                                  </button>
+                                  <button
+                                    onClick={() => removeGalleryImage(index)}
+                                    title="Xóa ảnh này"
+                                    className="p-1.5 rounded-lg bg-white/20 hover:bg-red-500 text-white backdrop-blur-sm transition-colors"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                  <div className="ml-auto cursor-grab active:cursor-grabbing p-1.5 rounded-lg bg-white/20 text-white backdrop-blur-sm">
+                                    <GripVertical size={14} />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Caption editor for selected images */}
+                      <div className="space-y-2">
+                        {form.galleryImages.map((img, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <img src={img.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700" />
+                            <span className="text-[10px] font-bold text-slate-400 w-4 shrink-0">{index + 1}</span>
+                            <input
+                              value={img.caption}
+                              onChange={(e) => updateCaption(index, e.target.value)}
+                              placeholder={`Chú thích ảnh ${index + 1} (không bắt buộc)`}
+                              className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40 transition"
+                            />
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+                        <GripVertical size={12} /> Kéo thả để sắp xếp · Ảnh đầu tiên hoặc ảnh có <Crown size={10} className="inline text-amber-500" /> sẽ làm thumbnail
+                      </p>
                     </div>
                   )}
                 </div>

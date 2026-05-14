@@ -44,6 +44,15 @@ public class BookingResponse {
     private Integer tourDuration;
     private BigDecimal tourRating;
 
+    // SePay payment link (set when paymentMethod=SEPAY)
+    private String checkoutUrl;
+    private String qrCode;
+
+    // Discount info
+    private String promoCode;
+    private BigDecimal discountAmount;
+    private BigDecimal originalPrice;
+
     /**
      * Convert Booking entity to BookingResponse (without tour info).
      */
@@ -63,6 +72,9 @@ public class BookingResponse {
                 .paymentMethod(booking.getPaymentMethod())
                 .paymentStatus(booking.getPaymentStatus())
                 .paidAt(booking.getPaidAt())
+                .promoCode(booking.getPromoCode())
+                .discountAmount(booking.getDiscountAmount())
+                .originalPrice(booking.getOriginalPrice())
                 .createdAt(booking.getCreatedAt())
                 .updatedAt(booking.getUpdatedAt())
                 .build();

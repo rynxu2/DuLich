@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { bookingsApi } from '@/lib/api';
-import { Filter, XCircle, CheckCircle, Ban, Search, CalendarDays } from 'lucide-react';
+import { Filter, XCircle, CheckCircle, Ban, Search, CalendarDays, Loader2 } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
 const STATUS_MAP: Record<string, { label: string; class: string }> = {
@@ -28,22 +28,41 @@ const SkeletonRow = () => (
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
+  const [totalBookings, setTotalBookings] = useState(0);
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  const fetchBookings = async () => {
+  /** Fetch a single page of bookings from backend */
+  const fetchBookings = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await bookingsApi.list();
-      setBookings(Array.isArray(data) ? data : []);
+      const { data } = await bookingsApi.listPaginated(currentPage - 1, pageSize);
+      setBookings(data.content || []);
+      setTotalBookings(data.totalElements || 0);
     } catch {} finally { setLoading(false); }
-  };
+  }, [currentPage]);
 
-  useEffect(() => { fetchBookings(); }, []);
+  /** Fetch all bookings once to calculate status counts for filter badges */
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const { data } = await bookingsApi.list();
+        const all = Array.isArray(data) ? data : [];
+        const counts: Record<string, number> = { ALL: all.length };
+        all.forEach((b: any) => { counts[b.status] = (counts[b.status] || 0) + 1; });
+        setStatusCounts(counts);
+      } catch {}
+    };
+    fetchCounts();
+  }, []);
 
+  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  /** Client-side filtering on the current page (search + status) */
   const filtered = bookings.filter((b) => {
     const matchStatus = statusFilter === 'ALL' || b.status === statusFilter;
     const q = search.toLowerCase();
@@ -55,20 +74,17 @@ export default function BookingsPage() {
     return matchStatus && matchSearch;
   });
 
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const currentBookings = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter]);
+  const totalPages = Math.ceil(totalBookings / pageSize);
 
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 
-  const pendingCount = bookings.filter((b) => b.status === 'PENDING').length;
+  const pendingCount = statusCounts['PENDING'] || 0;
 
   const handleConfirm = async (id: number) => {
     if (!confirm('Xác nhận booking này?')) return;
     try {
       await bookingsApi.confirm(id);
-      setBookings(bookings.map((b) => b.id === id ? { ...b, status: 'CONFIRMED' } : b));
+      fetchBookings();
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Không thể xác nhận booking');
     }
@@ -78,7 +94,7 @@ export default function BookingsPage() {
     if (!confirm('Từ chối booking này? Booking sẽ bị hủy.')) return;
     try {
       await bookingsApi.reject(id);
-      setBookings(bookings.map((b) => b.id === id ? { ...b, status: 'CANCELLED' } : b));
+      fetchBookings();
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Không thể từ chối booking');
     }
@@ -88,7 +104,7 @@ export default function BookingsPage() {
     if (!confirm('Đánh dấu booking này là Đã hoàn thành?')) return;
     try {
       await bookingsApi.complete(id);
-      setBookings(bookings.map((b) => b.id === id ? { ...b, status: 'COMPLETED' } : b));
+      fetchBookings();
     } catch (err: any) {
       alert(err?.response?.data?.message || 'Không thể đánh dấu hoàn thành booking');
     }
@@ -98,7 +114,7 @@ export default function BookingsPage() {
     if (!confirm('Bạn có chắc muốn hủy booking này?')) return;
     try {
       await bookingsApi.cancel(id);
-      setBookings(bookings.map((b) => b.id === id ? { ...b, status: 'CANCELLED' } : b));
+      fetchBookings();
     } catch { alert('Không thể hủy booking'); }
   };
 
@@ -143,7 +159,7 @@ export default function BookingsPage() {
           
           <div className="flex items-center gap-2 overflow-x-auto pb-2 xl:pb-0 hide-scrollbar">
             {['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'].map((s) => {
-              const count = s === 'ALL' ? bookings.length : bookings.filter((b) => b.status === s).length;
+              const count = s === 'ALL' ? (statusCounts['ALL'] || totalBookings) : (statusCounts[s] || 0);
               const isActive = statusFilter === s;
               return (
                 <button 
@@ -199,7 +215,7 @@ export default function BookingsPage() {
                     </div>
                   </td>
                 </tr>
-              ) : currentBookings.map((b) => (
+              ) : filtered.map((b) => (
                 <tr key={b.id} className={`group border-b border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors
                   ${b.status === 'PENDING' ? 'bg-amber-50/20 dark:bg-amber-500/[0.02]' : ''}`}>
                   <td className="px-5 py-4 text-slate-500 dark:text-slate-400 font-mono text-xs">#{b.id}</td>
@@ -218,11 +234,19 @@ export default function BookingsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex items-center gap-1.5">
-                      <div className={`w-2 h-2 rounded-full ${b.paymentStatus === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                      <span className={`text-xs font-medium ${b.paymentStatus === 'PAID' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                        {b.paymentStatus || 'UNPAID'}
+                    <div className="flex flex-col gap-1">
+                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full w-fit
+                        ${b.paymentMethod === 'PAYOS'
+                          ? 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400'
+                          : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'}`}>
+                        {b.paymentMethod === 'PAYOS' ? '🏦 payOS' : '💵 Cash'}
                       </span>
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full ${b.paymentStatus === 'PAID' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                        <span className={`text-xs font-medium ${b.paymentStatus === 'PAID' ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                          {b.paymentStatus || 'UNPAID'}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className="px-5 py-4 text-right">
@@ -276,7 +300,7 @@ export default function BookingsPage() {
           totalPages={totalPages}
           onPageChange={setCurrentPage}
           pageSize={pageSize}
-          totalItems={filtered.length}
+          totalItems={totalBookings}
         />
       </div>
     </div>

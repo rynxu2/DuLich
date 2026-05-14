@@ -3,7 +3,9 @@ package com.dulich.tour.service;
 import com.dulich.tour.entity.Tour;
 import com.dulich.tour.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -12,6 +14,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class TourService {
 
     private final TourRepository tourRepository;
@@ -23,7 +26,17 @@ public class TourService {
     );
 
     public List<Tour> getAllTours() {
-        return tourRepository.findAll();
+        List<Tour> tours = tourRepository.findAll();
+        tours.forEach(this::initializeRelations);
+        return tours;
+    }
+
+    /** Batch fetch for booking-service enrichment (no relations needed) */
+    public List<Tour> getToursByIds(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return List.of();
+        List<Tour> tours = tourRepository.findAllById(ids);
+        tours.forEach(this::initializeRelations);
+        return tours;
     }
 
     public List<Tour> listTours(String keyword, String category) {
@@ -33,34 +46,46 @@ public class TourService {
         boolean hasKeyword = !normalizedKeyword.isEmpty();
         boolean hasCategory = !normalizedCategory.isEmpty() && !"all".equals(normalizedCategory);
 
+        List<Tour> tours;
         if (!hasKeyword && !hasCategory) {
-            return tourRepository.findAll();
+            tours = tourRepository.findAll();
+        } else if (hasKeyword && hasCategory) {
+            tours = tourRepository.searchToursByKeywordAndCategory(normalizedKeyword, normalizedCategory);
+        } else if (hasKeyword) {
+            tours = tourRepository.searchTours(normalizedKeyword);
+        } else {
+            tours = tourRepository.findByCategory(normalizedCategory);
         }
-
-        if (hasKeyword && hasCategory) {
-            return tourRepository.searchToursByKeywordAndCategory(normalizedKeyword, normalizedCategory);
-        }
-
-        if (hasKeyword) {
-            return tourRepository.searchTours(normalizedKeyword);
-        }
-
-        return tourRepository.findByCategory(normalizedCategory);
+        tours.forEach(this::initializeRelations);
+        return tours;
     }
 
     public Tour getTourById(Long id) {
-        return tourRepository.findById(id)
+        Tour tour = tourRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Tour not found with id: " + id));
+        initializeRelations(tour);
+        return tour;
     }
 
     public List<Tour> searchTours(String keyword) {
-        return tourRepository.searchTours(keyword);
+        List<Tour> tours = tourRepository.searchTours(keyword);
+        tours.forEach(this::initializeRelations);
+        return tours;
     }
 
+    @Transactional
     public Tour createTour(Tour tour) {
+        // Set parent back-reference (Jackson @JsonIgnore skips this during deserialization)
+        if (tour.getImages() != null) {
+            tour.getImages().forEach(img -> img.setTour(tour));
+        }
+        if (tour.getDepartures() != null) {
+            tour.getDepartures().forEach(dep -> dep.setTour(tour));
+        }
         return tourRepository.save(tour);
     }
 
+    @Transactional
     public Tour updateTour(Long id, Tour tourDetails) {
         Tour tour = getTourById(id);
         if (tourDetails.getTitle() != null) tour.setTitle(tourDetails.getTitle());
@@ -71,9 +96,23 @@ public class TourService {
         if (tourDetails.getRating() != null) tour.setRating(tourDetails.getRating());
         if (tourDetails.getItinerary() != null) tour.setItinerary(tourDetails.getItinerary());
         if (tourDetails.getImageUrl() != null) tour.setImageUrl(tourDetails.getImageUrl());
+        if (tourDetails.getMaxParticipants() != null) tour.setMaxParticipants(tourDetails.getMaxParticipants());
+        if (tourDetails.getCategory() != null) tour.setCategory(tourDetails.getCategory());
+        if (tourDetails.getIsActive() != null) tour.setIsActive(tourDetails.getIsActive());
+
+        // Merge gallery images via cascade + orphanRemoval
+        if (tourDetails.getImages() != null) {
+            tour.getImages().clear();
+            for (var img : tourDetails.getImages()) {
+                img.setTour(tour);
+                tour.getImages().add(img);
+            }
+        }
+
         return tourRepository.save(tour);
     }
 
+    @Transactional
     public void deleteTour(Long id) {
         Tour tour = getTourById(id);
         tourRepository.delete(tour);
@@ -84,5 +123,11 @@ public class TourService {
             return "";
         }
         return value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Force-initialize LAZY collections within the @Transactional boundary */
+    private void initializeRelations(Tour tour) {
+        Hibernate.initialize(tour.getImages());
+        Hibernate.initialize(tour.getDepartures());
     }
 }

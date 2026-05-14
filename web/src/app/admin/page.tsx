@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toursApi, bookingsApi, usersApi } from '@/lib/api';
+import { toursApi, bookingsApi, usersApi, analyticsApi, expensesApi } from '@/lib/api';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area
 } from 'recharts';
-import { TrendingUp, Users, Map, DollarSign, CalendarCheck, ArrowUpRight, ArrowRight } from 'lucide-react';
+import { TrendingUp, Users, Map, DollarSign, CalendarCheck, ArrowUpRight, ArrowRight, CreditCard, PiggyBank } from 'lucide-react';
 import Link from 'next/link';
 
 interface KPI {
@@ -34,6 +34,7 @@ export default function AdminDashboard() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [userCount, setUserCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<any>(null);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -52,6 +53,11 @@ export default function AdminDashboard() {
           const uData = Array.isArray(u.value.data) ? u.value.data : [];
           setUserCount(uData.length);
         }
+        // Fetch analytics summary (revenue, expenses, profit)
+        try {
+          const s = await analyticsApi.getSummary();
+          setSummary(s.data);
+        } catch {}
       } catch {} finally { setLoading(false); }
     };
     fetchAll();
@@ -79,14 +85,18 @@ export default function AdminDashboard() {
       bookings: (data as any).count,
     }));
 
+  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
+
   const kpis: KPI[] = [
     { label: 'Tổng Doanh Thu', value: new Intl.NumberFormat('vi-VN').format(totalRevenue) + 'đ', change: `+${bookings.length} đơn`, icon: DollarSign, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
     { label: 'Tour Đang Hoạt Động', value: tours.length, change: 'Khai thác', icon: Map, color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-500/10' },
     { label: 'Tổng Đặt Tour', value: bookings.length, change: `${confirmedBookings} xác nhận`, icon: CalendarCheck, color: 'text-violet-600 dark:text-violet-400', bg: 'bg-violet-50 dark:bg-violet-500/10' },
     { label: 'Người Dùng', value: userCount, change: 'Tài khoản', icon: Users, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+    ...(summary ? [
+      { label: 'Chi Phí Chờ Duyệt', value: (summary.pendingCount || 0) + ' phiếu', change: fmt(summary.pendingExpenses || 0) + 'đ', icon: CreditCard, color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-500/10' },
+      { label: 'Lợi Nhuận Ròng', value: fmt(summary.profit || 0) + 'đ', change: (summary.margin || 0) + '% margin', icon: PiggyBank, color: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+    ] : []),
   ];
-
-  const fmt = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
 
   return (
     <div className="space-y-8 pb-10">
@@ -99,7 +109,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {loading ? (
           <>
             <SkeletonCard /><SkeletonCard /><SkeletonCard /><SkeletonCard />
@@ -141,7 +151,7 @@ export default function AdminDashboard() {
           {loading ? (
             <div className="h-[280px] w-full bg-slate-100 dark:bg-slate-800/50 rounded-xl animate-pulse" />
           ) : revenueChart.length > 0 ? (
-            <div className="h-[280px] w-full">
+            <div style={{ width: '100%', height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
@@ -182,7 +192,7 @@ export default function AdminDashboard() {
           {loading ? (
             <div className="h-[280px] w-full bg-slate-100 dark:bg-slate-800/50 rounded-xl animate-pulse" />
           ) : revenueChart.length > 0 ? (
-            <div className="h-[280px] w-full">
+            <div style={{ width: '100%', height: 280 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={revenueChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={32}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" className="dark:stroke-slate-800/60" />

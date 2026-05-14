@@ -35,5 +35,6 @@ com\dulich\tour\controller\ItineraryController.class
 com\dulich\tour\controller\ReviewController.class
 com\dulich\tour\repository\ReviewRepository.class
 com\dulich\tour\service\PricingEngine.class
+com\dulich\tour\service\GuideScheduleService.class
 com\dulich\tour\entity\Tour$TourBuilder.class
 com\dulich\tour\entity\TourDeparture.class

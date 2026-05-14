@@ -17,10 +17,14 @@ D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\ent
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\service\CapacityService.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\entity\GuideSchedule.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\controller\ItineraryController.java
+D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\entity\PromoUsage.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\repository\TourRepository.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\entity\Tour.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\service\TourService.java
+D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\repository\PromoUsageRepository.java
+D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\service\GuideScheduleService.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\service\ItineraryService.java
+D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\dto\PromoValidationResponse.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\controller\PricingController.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\entity\Review.java
 D:\Antigravity\Beo\DuLich\backend\tour-service\src\main\java\com\dulich\tour\dto\PricePreviewRequest.java

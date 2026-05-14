@@ -15,7 +15,11 @@ import java.util.List;
 import java.util.Map;
 
 @Entity
-@Table(name = "tours")
+@Table(name = "tours", indexes = {
+    @Index(name = "idx_tour_category", columnList = "category"),
+    @Index(name = "idx_tour_location", columnList = "location"),
+    @Index(name = "idx_tour_is_active", columnList = "is_active")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -76,11 +80,11 @@ public class Tour {
     @Builder.Default
     private LocalDateTime updatedAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TourImage> images = new ArrayList<>();
 
-    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "tour", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @Builder.Default
     private List<TourDeparture> departures = new ArrayList<>();
 }

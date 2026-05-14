@@ -4,7 +4,10 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
-@Entity @Table(name = "notifications")
+@Entity @Table(name = "notifications", indexes = {
+    @Index(name = "idx_notif_user_id_read", columnList = "user_id, is_read"),
+    @Index(name = "idx_notif_created_at", columnList = "created_at")
+})
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Notification {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

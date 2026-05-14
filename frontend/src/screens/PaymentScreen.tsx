@@ -58,7 +58,13 @@ export default function PaymentScreen({ navigation, route }: Props) {
             <Icon name="check-circle" size={64} color={theme.colors.success} />
           </View>
           <Text style={styles.successTitle}>Đặt tour thành công!</Text>
-          <Text style={styles.successSubtitle}>Vui lòng thanh toán tiền mặt khi gặp hướng dẫn viên</Text>
+          <Text style={styles.successSubtitle}>
+            {booking.paymentMethod === 'SEPAY'
+              ? 'Đã thanh toán qua chuyển khoản ngân hàng'
+              : booking.paymentMethod === 'VTCPAY'
+              ? 'Đã thanh toán qua thẻ ngân hàng'
+              : 'Vui lòng thanh toán tiền mặt khi gặp hướng dẫn viên'}
+          </Text>
         </View>
 
         {/* Booking Info Card */}
@@ -76,14 +82,32 @@ export default function PaymentScreen({ navigation, route }: Props) {
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Phương thức</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name="cash" size={18} color={theme.colors.success} />
-              <Text style={styles.cardValue}>Tiền mặt</Text>
+              <Icon
+                name={booking.paymentMethod === 'SEPAY' ? 'bank-transfer' : booking.paymentMethod === 'VTCPAY' ? 'credit-card' : 'cash'}
+                size={18}
+                color={booking.paymentMethod === 'SEPAY' ? '#2563EB' : booking.paymentMethod === 'VTCPAY' ? '#DC2626' : theme.colors.success}
+              />
+              <Text style={styles.cardValue}>
+                {booking.paymentMethod === 'SEPAY' ? 'Chuyển khoản' : booking.paymentMethod === 'VTCPAY' ? 'Thẻ ATM/Visa' : 'Tiền mặt'}
+              </Text>
             </View>
           </View>
           <View style={styles.cardRow}>
             <Text style={styles.cardLabel}>Trạng thái</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>Chờ thanh toán</Text>
+            <View style={[
+              styles.statusBadge,
+              booking.paymentStatus === 'PAID'
+                ? { backgroundColor: theme.colors.success + '20' }
+                : { backgroundColor: theme.colors.warning + '20' }
+            ]}>
+              <Text style={[
+                styles.statusText,
+                booking.paymentStatus === 'PAID'
+                  ? { color: theme.colors.success }
+                  : { color: theme.colors.warning }
+              ]}>
+                {booking.paymentStatus === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán'}
+              </Text>
             </View>
           </View>
           <View style={styles.divider} />
@@ -93,31 +117,35 @@ export default function PaymentScreen({ navigation, route }: Props) {
           </View>
         </View>
 
-        {/* Cash Payment Instructions */}
-        <View style={styles.instructionCard}>
-          <Text style={styles.instructionTitle}>Hướng dẫn thanh toán</Text>
-          
-          <View style={styles.stepRow}>
-            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>1</Text></View>
-            <Text style={styles.stepText}>Lưu lại mã đơn hàng <Text style={{ fontWeight: '700' }}>#{booking.id}</Text></Text>
+        {/* Payment Instructions — only for CASH */}
+        {booking.paymentMethod === 'CASH' && (
+          <View style={styles.instructionCard}>
+            <Text style={styles.instructionTitle}>Hướng dẫn thanh toán</Text>
+            
+            <View style={styles.stepRow}>
+              <View style={styles.stepNumber}><Text style={styles.stepNumberText}>1</Text></View>
+              <Text style={styles.stepText}>Lưu lại mã đơn hàng <Text style={{ fontWeight: '700' }}>#{booking.id}</Text></Text>
+            </View>
+            
+            <View style={styles.stepRow}>
+              <View style={styles.stepNumber}><Text style={styles.stepNumberText}>2</Text></View>
+              <Text style={styles.stepText}>Thanh toán tiền mặt khi gặp hướng dẫn viên vào ngày khởi hành</Text>
+            </View>
+            
+            <View style={styles.stepRow}>
+              <View style={styles.stepNumber}><Text style={styles.stepNumberText}>3</Text></View>
+              <Text style={styles.stepText}>Nhận biên lai xác nhận thanh toán từ nhân viên</Text>
+            </View>
           </View>
-          
-          <View style={styles.stepRow}>
-            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>2</Text></View>
-            <Text style={styles.stepText}>Thanh toán tiền mặt khi gặp hướng dẫn viên vào ngày khởi hành</Text>
-          </View>
-          
-          <View style={styles.stepRow}>
-            <View style={styles.stepNumber}><Text style={styles.stepNumberText}>3</Text></View>
-            <Text style={styles.stepText}>Nhận biên lai xác nhận thanh toán từ nhân viên</Text>
-          </View>
-        </View>
+        )}
 
         {/* Note */}
         <View style={styles.alertBox}>
           <Icon name="information" size={20} color={theme.colors.warning} />
           <Text style={styles.alertText}>
-            Đơn hàng sẽ được giữ chỗ trong 24 giờ. Nếu không thanh toán, đơn sẽ tự động hủy.
+            {(booking.paymentMethod === 'SEPAY' || booking.paymentMethod === 'VTCPAY') && booking.paymentStatus === 'PAID'
+              ? 'Giao dịch đã được xác nhận. Vui lòng giữ biên lai điện tử này.'
+              : 'Đơn hàng sẽ được giữ chỗ trong 24 giờ. Nếu không thanh toán, đơn sẽ tự động hủy.'}
           </Text>
         </View>
 

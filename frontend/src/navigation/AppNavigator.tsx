@@ -25,6 +25,9 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SepayPaymentScreen from '../screens/SepayPaymentScreen';
+import VtcpayPaymentScreen from '../screens/VtcpayPaymentScreen';
+import CreateExpenseScreen from '../screens/CreateExpenseScreen';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -38,6 +41,8 @@ export type RootStackParamList = {
     departureDate?: string;
   };
   Payment: { bookingId: number };
+  SepayPayment: { bookingId: number; checkoutUrl: string; qrCode: string; amount: number };
+  VtcpayPayment: { bookingId: number; checkoutUrl: string; amount: number };
   PaymentHistory: undefined;
   PaymentDetail: { paymentId: number };
   Review: { tourId: number; tourTitle: string };
@@ -48,6 +53,7 @@ export type RootStackParamList = {
   EditProfile: undefined;
   Feedback: undefined;
   Settings: undefined;
+  CreateExpense: { tourId: number; tourTitle: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -88,6 +94,8 @@ export default function AppNavigator() {
             <Stack.Screen name="TourDetail" component={TourDetailScreen} />
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="Payment" component={PaymentScreen} />
+            <Stack.Screen name="SepayPayment" component={SepayPaymentScreen} />
+            <Stack.Screen name="VtcpayPayment" component={VtcpayPaymentScreen} />
             <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
             <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
             <Stack.Screen name="Review" component={ReviewScreen} />
@@ -98,6 +106,7 @@ export default function AppNavigator() {
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="CreateExpense" component={CreateExpenseScreen} />
           </>
         )}
       </Stack.Navigator>

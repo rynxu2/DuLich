@@ -8,6 +8,9 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "reviews", uniqueConstraints = {
     @UniqueConstraint(columnNames = {"user_id", "tour_id"})
+}, indexes = {
+    @Index(name = "idx_review_tour_id", columnList = "tour_id"),
+    @Index(name = "idx_review_user_id", columnList = "user_id")
 })
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Review {

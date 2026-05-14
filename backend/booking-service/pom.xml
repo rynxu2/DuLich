@@ -81,6 +81,8 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
+
+        <!-- SePay: No SDK needed — uses Spring RestTemplate for HTTP calls -->
     </dependencies>
 
     <dependencyManagement>

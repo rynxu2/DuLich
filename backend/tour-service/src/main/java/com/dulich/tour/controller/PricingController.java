@@ -75,9 +75,37 @@ public class PricingController {
         return ResponseEntity.status(201).body(promoCodeRepository.save(promo));
     }
 
+    @PutMapping("/promos/{id}")
+    public ResponseEntity<PromoCode> updatePromo(@PathVariable Long id, @RequestBody PromoCode updates) {
+        PromoCode promo = promoCodeRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Promo not found: " + id));
+        if (updates.getDescription() != null) promo.setDescription(updates.getDescription());
+        if (updates.getMaxUses() != null) promo.setMaxUses(updates.getMaxUses());
+        if (updates.getValidFrom() != null) promo.setValidFrom(updates.getValidFrom());
+        if (updates.getValidUntil() != null) promo.setValidUntil(updates.getValidUntil());
+        if (updates.getIsActive() != null) promo.setIsActive(updates.getIsActive());
+        return ResponseEntity.ok(promoCodeRepository.save(promo));
+    }
+
     @DeleteMapping("/promos/{id}")
     public ResponseEntity<Void> deletePromo(@PathVariable Long id) {
         promoCodeRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Promo Validation & Consumption ──
+    @GetMapping("/validate-promo")
+    public ResponseEntity<com.dulich.tour.dto.PromoValidationResponse> validatePromo(
+            @RequestParam String code,
+            @RequestParam(required = false) Long userId) {
+        return ResponseEntity.ok(pricingEngine.validatePromoCode(code, userId));
+    }
+
+    @PostMapping("/consume-promo")
+    public ResponseEntity<Boolean> consumePromo(
+            @RequestParam String code,
+            @RequestParam Long userId,
+            @RequestParam(required = false) Long bookingId) {
+        return ResponseEntity.ok(pricingEngine.consumePromoCode(code, userId, bookingId));
     }
 }

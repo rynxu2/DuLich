@@ -69,6 +69,17 @@ apiClient.interceptors.response.use(
 
 export default apiClient;
 
+/** Spring Page<T> response shape */
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;  // current page (0-indexed)
+  first: boolean;
+  last: boolean;
+}
+
 // ── Auth ──
 export const authApi = {
   login: (data: { username: string; password: string }) => apiClient.post('/auth/login', data),
@@ -88,7 +99,11 @@ export const toursApi = {
 // ── Bookings ──
 export const bookingsApi = {
   list: () => apiClient.get('/bookings'),
+  listPaginated: (page: number, size: number) =>
+    apiClient.get<PageResponse<any>>('/bookings', { params: { page, size } }),
   getByUser: (userId: number) => apiClient.get(`/bookings/user/${userId}`),
+  getByUserPaginated: (userId: number, page: number, size: number) =>
+    apiClient.get<PageResponse<any>>(`/bookings/user/${userId}`, { params: { page, size } }),
   getById: (id: number) => apiClient.get(`/bookings/${id}`),
   cancel: (id: number) => apiClient.put(`/bookings/${id}/cancel`),
   confirm: (id: number) => apiClient.put(`/bookings/${id}/confirm`),
@@ -146,16 +161,18 @@ export const pricingApi = {
   deleteRule: (id: number) => apiClient.delete(`/pricing/rules/${id}`),
   listPromos: () => apiClient.get('/pricing/promos'),
   createPromo: (data: any) => apiClient.post('/pricing/promos', data),
+  updatePromo: (id: number, data: any) => apiClient.put(`/pricing/promos/${id}`, data),
   deletePromo: (id: number) => apiClient.delete(`/pricing/promos/${id}`),
 };
 
-// ── Analytics ──
+// ── Analytics (powered by booking-service) ──
 export const analyticsApi = {
   getRevenue: () => apiClient.get('/analytics/revenue'),
-  getProfitSummary: () => apiClient.get('/analytics/profit/summary'),
+  getProfitSummary: () => apiClient.get('/bookings/analytics/summary'),
   getTourProfit: (tourId: number) => apiClient.get(`/analytics/profit/tour/${tourId}`),
-  getAllProfits: () => apiClient.get('/analytics/profit/all'),
+  getAllProfits: () => apiClient.get('/bookings/analytics/profit-by-tour'),
   getCostBreakdown: (tourId: number) => apiClient.get(`/analytics/cost-breakdown/tour/${tourId}`),
+  getSummary: () => apiClient.get('/bookings/analytics/summary'),
 };
 
 // ── Storage ──

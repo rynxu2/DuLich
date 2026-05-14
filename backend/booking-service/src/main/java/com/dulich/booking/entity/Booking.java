@@ -11,7 +11,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "bookings")
+@Table(name = "bookings", indexes = {
+    @Index(name = "idx_booking_user_id", columnList = "user_id"),
+    @Index(name = "idx_booking_tour_id", columnList = "tour_id"),
+    @Index(name = "idx_booking_status", columnList = "status"),
+    @Index(name = "idx_booking_created_at", columnList = "created_at")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -65,6 +70,16 @@ public class Booking {
 
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
+
+    @Column(name = "promo_code", length = 50)
+    private String promoCode;
+
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "original_price", precision = 12, scale = 2)
+    private BigDecimal originalPrice;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

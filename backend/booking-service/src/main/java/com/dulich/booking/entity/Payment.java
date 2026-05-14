@@ -5,7 +5,11 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-@Entity @Table(name = "payments")
+@Entity @Table(name = "payments", indexes = {
+    @Index(name = "idx_payment_booking_id", columnList = "booking_id"),
+    @Index(name = "idx_payment_user_id", columnList = "user_id"),
+    @Index(name = "idx_payment_provider_tx", columnList = "provider_transaction_id")
+})
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Payment {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

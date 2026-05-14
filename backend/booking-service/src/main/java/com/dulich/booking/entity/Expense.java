@@ -6,7 +6,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Entity @Table(name = "expenses")
+@Entity @Table(name = "expenses", indexes = {
+    @Index(name = "idx_expense_tour_id", columnList = "tour_id"),
+    @Index(name = "idx_expense_guide_id", columnList = "guide_id"),
+    @Index(name = "idx_expense_status", columnList = "status")
+})
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Expense {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -49,7 +53,7 @@ public class Expense {
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
 
-    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "expense", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ExpenseAttachment> attachments;
 
     @Column(name = "created_at", nullable = false, updatable = false) @Builder.Default

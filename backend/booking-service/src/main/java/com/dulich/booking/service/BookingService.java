@@ -6,22 +6,33 @@ import com.dulich.booking.client.TourServiceClient;
 import com.dulich.booking.dto.BookingRequest;
 import com.dulich.booking.dto.BookingResponse;
 import com.dulich.booking.dto.ItineraryRequest;
+import com.dulich.booking.dto.SepayPaymentResult;
+import com.dulich.booking.dto.PricePreviewResponse;
 import com.dulich.booking.dto.ProfileStatsResponse;
 import com.dulich.booking.dto.TourResponse;
 import com.dulich.booking.entity.Booking;
+import com.dulich.booking.entity.Expense;
 import com.dulich.booking.repository.BookingRepository;
+import com.dulich.booking.repository.ExpenseRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Booking Service — Business logic with fault tolerance
@@ -29,7 +40,9 @@ import java.util.Map;
  * When a booking is created:
  * 1. Fetch tour info (price, itinerary template) from Tour Service
  * 2. Calculate total price and save booking
- * 3. Auto-create itinerary entries from tour template via Itinerary Service
+ * 3. If paymentMethod=SEPAY: create SePay VietQR payment link
+ *    If paymentMethod=VTCPAY: create VTC Pay checkout URL for card payment
+ * 4. Auto-create itinerary entries from tour template via Itinerary Service
  */
 @Service
 @RequiredArgsConstructor
@@ -37,50 +50,164 @@ import java.util.Map;
 public class BookingService {
 
     private final BookingRepository bookingRepository;
+    private final ExpenseRepository expenseRepository;
     private final TourServiceClient tourServiceClient;
     private final ItineraryServiceClient itineraryServiceClient;
     private final IdentityServiceClient identityServiceClient;
     private final SimpMessagingTemplate messagingTemplate;
+    private final SepayService sepayService;
+    private final VtcpayService vtcpayService;
+    private final PaymentService paymentService;
 
     /**
      * Create a new booking with circuit breaker protection.
-     * After saving the booking, automatically generates itinerary
-     * entries from the tour's itinerary template.
+     * Calls PricingEngine for dynamic pricing (rules + promo codes).
+     * Returns BookingResponse — includes checkoutUrl if paymentMethod=SEPAY or VTCPAY.
      */
     @CircuitBreaker(name = "tourService", fallbackMethod = "createBookingFallback")
     @Retry(name = "tourService")
-    public Booking createBooking(Long userId, BookingRequest request) {
+    public BookingResponse createBooking(Long userId, BookingRequest request) {
         TourResponse tour = null;
         BigDecimal totalPrice = BigDecimal.ZERO;
+        BigDecimal originalPrice = BigDecimal.ZERO;
+        BigDecimal discountAmount = BigDecimal.ZERO;
 
-        // Step 1: Try to fetch tour info (circuit breaker protects this)
+        // Step 1: Fetch tour info + calculate price via PricingEngine
         try {
             tour = tourServiceClient.getTourById(request.getTourId());
             if (tour != null && tour.getPrice() != null) {
-                totalPrice = tour.getPrice().multiply(BigDecimal.valueOf(request.getTravelers()));
+                originalPrice = tour.getPrice().multiply(BigDecimal.valueOf(request.getTravelers()));
+
+                // Call PricingEngine for dynamic pricing (rules + promo)
+                try {
+                    String depDate = request.getBookingDate() != null ? request.getBookingDate().toString() : null;
+                    PricePreviewResponse pricing = tourServiceClient.previewPrice(
+                        request.getTourId(),
+                        request.getAdults() > 0 ? request.getAdults() : request.getTravelers(),
+                        request.getChildren() > 0 ? request.getChildren() : null,
+                        depDate,
+                        request.getPromoCode()
+                    );
+                    if (pricing != null && pricing.getFinalPrice() != null) {
+                        totalPrice = pricing.getFinalPrice();
+                        discountAmount = pricing.getSavings() != null ? pricing.getSavings() : BigDecimal.ZERO;
+                        log.info("PricingEngine: tourId={}, original={}, final={}, savings={}, rules={}",
+                            request.getTourId(), originalPrice, totalPrice, discountAmount,
+                            pricing.getAppliedRules() != null ? pricing.getAppliedRules().size() : 0);
+                    } else {
+                        totalPrice = originalPrice;
+                    }
+                } catch (Exception pe) {
+                    log.warn("PricingEngine unavailable for tourId={}: {}. Using base price.",
+                        request.getTourId(), pe.getMessage());
+                    totalPrice = originalPrice;
+                }
             }
         } catch (Exception e) {
             log.warn("Could not fetch tour price for tourId={}: {}. Booking with price=0.",
                     request.getTourId(), e.getMessage());
         }
 
-        // Step 2: Save the booking with PENDING status (requires admin confirmation)
+        // Step 2: Save the booking with PENDING status + discount info
+        String paymentMethod = request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH";
+        // Normalize legacy "PAYOS" to "SEPAY"
+        if ("PAYOS".equalsIgnoreCase(paymentMethod)) paymentMethod = "SEPAY";
         Booking booking = Booking.builder()
             .userId(userId)
             .tourId(request.getTourId())
+            .departureId(request.getDepartureId())
             .bookingDate(request.getBookingDate())
             .travelers(request.getTravelers())
             .totalPrice(totalPrice)
+            .originalPrice(originalPrice)
+            .discountAmount(discountAmount)
+            .promoCode(request.getPromoCode() != null ? request.getPromoCode().toUpperCase() : null)
             .contactName(request.getContactName())
             .contactPhone(request.getContactPhone())
             .specialRequests(request.getSpecialRequests())
-            .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH")
+            .paymentMethod(paymentMethod)
             .status("PENDING")
             .build();
 
         Booking savedBooking = bookingRepository.save(booking);
-        log.info("Booking {} created with PENDING status for tourId={}", savedBooking.getId(), request.getTourId());
-        
+        log.info("Booking {} created: tourId={}, total={}, discount={}, promo={}",
+            savedBooking.getId(), request.getTourId(), totalPrice, discountAmount, request.getPromoCode());
+
+        // Step 3: Consume promo code (increment usage count + per-user tracking)
+        if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
+            try {
+                tourServiceClient.consumePromo(request.getPromoCode(), userId, savedBooking.getId());
+            } catch (Exception e) {
+                log.warn("Failed to consume promo {}: {}", request.getPromoCode(), e.getMessage());
+            }
+        }
+
+        // Build response
+        BookingResponse response = BookingResponse.fromBooking(savedBooking);
+        if (tour != null) {
+            response.withTourInfo(tour);
+        }
+
+        // Step 4: If SEPAY — create VietQR payment link and payment record
+        if ("SEPAY".equalsIgnoreCase(paymentMethod)) {
+            try {
+                long orderCode = generateOrderCode(savedBooking.getId());
+                String tourTitle = tour != null && tour.getTitle() != null ? tour.getTitle() : "Tour";
+                String description = buildSepayDescription(tourTitle, savedBooking.getId(), request.getTravelers());
+
+                SepayPaymentResult sepayResult = sepayService.createPaymentLink(orderCode, totalPrice, description);
+
+                // Create payment record in PROCESSING state
+                paymentService.processSepayPayment(
+                    savedBooking.getId(), userId, totalPrice,
+                    sepayResult.getCheckoutUrl(), orderCode
+                );
+
+                // Set SePay checkout info in response
+                response.setCheckoutUrl(sepayResult.getCheckoutUrl());
+                response.setQrCode(sepayResult.getQrCode());
+
+                log.info("SePay payment link created for booking {}: {}", savedBooking.getId(), sepayResult.getQrCode());
+            } catch (Exception e) {
+                log.error("Failed to create SePay payment for booking {}: {}", savedBooking.getId(), e.getMessage());
+                savedBooking.setPaymentStatus("PAYMENT_LINK_FAILED");
+                savedBooking.setUpdatedAt(LocalDateTime.now());
+                bookingRepository.save(savedBooking);
+                response = BookingResponse.fromBooking(savedBooking);
+                if (tour != null) response.withTourInfo(tour);
+            }
+        }
+
+        // Step 4b: If VTCPAY — build VTC Pay checkout URL for card payment
+        if ("VTCPAY".equalsIgnoreCase(paymentMethod)) {
+            try {
+                String referenceNumber = generateVtcpayRefNumber(savedBooking.getId());
+                String customerName = request.getContactName() != null ? request.getContactName() : "";
+                String customerPhone = request.getContactPhone() != null ? request.getContactPhone() : "";
+
+                String formHtml = vtcpayService.buildCheckoutFormHtml(
+                    referenceNumber, totalPrice, customerName, customerPhone, ""
+                );
+
+                paymentService.processVtcpayPayment(
+                    savedBooking.getId(), userId, totalPrice, formHtml, referenceNumber
+                );
+
+                // checkoutUrl contains HTML form (will be loaded by WebView)
+                response.setCheckoutUrl(formHtml);
+
+                log.info("VTC Pay checkout URL created for booking {}: ref={}", savedBooking.getId(), referenceNumber);
+            } catch (Exception e) {
+                log.error("Failed to create VTC Pay payment for booking {}: {}", savedBooking.getId(), e.getMessage());
+                savedBooking.setPaymentStatus("PAYMENT_LINK_FAILED");
+                savedBooking.setUpdatedAt(LocalDateTime.now());
+                bookingRepository.save(savedBooking);
+                response = BookingResponse.fromBooking(savedBooking);
+                if (tour != null) response.withTourInfo(tour);
+            }
+        }
+
+        // WebSocket notification
         try {
             messagingTemplate.convertAndSend("/topic/notifications", 
                 Map.of("type", "NEW_BOOKING", "bookingId", savedBooking.getId(), "message", "New booking received!"));
@@ -88,7 +215,32 @@ public class BookingService {
             log.error("Failed to send WebSocket notification", e);
         }
 
-        return savedBooking;
+        return response;
+    }
+
+    /**
+     * Generate unique orderCode for SePay from bookingId.
+     * Format: bookingId * 10000 + random suffix to avoid collision.
+     */
+    private long generateOrderCode(Long bookingId) {
+        return bookingId * 10000 + (System.currentTimeMillis() % 10000);
+    }
+
+    /**
+     * Build SePay description for transfer memo.
+     * Format: "Tour #123 x2 khach"
+     */
+    private String buildSepayDescription(String tourTitle, Long bookingId, int travelers) {
+        String desc = String.format("Tour #%d x%d khach", bookingId, travelers);
+        return desc.length() > 20 ? desc.substring(0, 20) : desc;
+    }
+
+    /**
+     * Generate unique VTC Pay reference_number from bookingId.
+     * Format: "DL" + bookingId + timestamp suffix (max 30 chars)
+     */
+    private String generateVtcpayRefNumber(Long bookingId) {
+        return "DL" + bookingId + (System.currentTimeMillis() % 100000);
     }
 
     /**
@@ -151,7 +303,7 @@ public class BookingService {
      * Fallback when Tour Service is unavailable — create booking with totalPrice=0
      * instead of failing. Admin can update price later.
      */
-    public Booking createBookingFallback(Long userId, BookingRequest request, Throwable t) {
+    public BookingResponse createBookingFallback(Long userId, BookingRequest request, Throwable t) {
         log.warn("Tour Service unavailable (fallback). Creating booking with price=0. Cause: {}", t.getMessage());
         Booking booking = Booking.builder()
             .userId(userId)
@@ -165,7 +317,8 @@ public class BookingService {
             .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH")
             .status("PENDING")
             .build();
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+        return BookingResponse.fromBooking(saved);
     }
 
     public List<Booking> getBookingsByUserId(Long userId) {
@@ -177,7 +330,7 @@ public class BookingService {
      */
     public List<BookingResponse> getBookingResponsesByUserId(Long userId) {
         List<Booking> bookings = bookingRepository.findByUserIdOrderByCreatedAtDesc(userId);
-        return bookings.stream().map(this::enrichBooking).toList();
+        return enrichBookings(bookings);
     }
 
     public Booking getBookingById(Long id) {
@@ -217,7 +370,21 @@ public class BookingService {
 
     public List<BookingResponse> getAllBookingResponses() {
         List<Booking> bookings = bookingRepository.findAll();
-        return bookings.stream().map(this::enrichBooking).toList();
+        return enrichBookings(bookings);
+    }
+
+    /** Paginated version for admin dashboard */
+    public Page<BookingResponse> getAllBookingResponses(Pageable pageable) {
+        Page<Booking> page = bookingRepository.findAllByOrderByCreatedAtDesc(pageable);
+        List<BookingResponse> enriched = enrichBookings(page.getContent());
+        return new PageImpl<>(enriched, pageable, page.getTotalElements());
+    }
+
+    /** Paginated version for user booking history (mobile infinite scroll) */
+    public Page<BookingResponse> getBookingResponsesByUserId(Long userId, Pageable pageable) {
+        Page<Booking> page = bookingRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        List<BookingResponse> enriched = enrichBookings(page.getContent());
+        return new PageImpl<>(enriched, pageable, page.getTotalElements());
     }
 
     public Booking cancelBooking(Long id) {
@@ -296,7 +463,7 @@ public class BookingService {
     }
 
     /**
-     * Enrich a Booking with tour data from Tour Service.
+     * Enrich a single Booking with tour data from Tour Service.
      * If Tour Service is unavailable, returns booking without tour info.
      */
     private BookingResponse enrichBooking(Booking booking) {
@@ -308,5 +475,118 @@ public class BookingService {
             log.warn("Could not fetch tour info for tourId={}: {}", booking.getTourId(), e.getMessage());
         }
         return response;
+    }
+
+    /**
+     * Batch-enrich bookings: 1 Feign call for ALL unique tourIds instead of N calls.
+     */
+    private List<BookingResponse> enrichBookings(List<Booking> bookings) {
+        if (bookings.isEmpty()) return List.of();
+
+        Map<Long, TourResponse> tourMap = Collections.emptyMap();
+        try {
+            Set<Long> tourIds = bookings.stream()
+                .map(Booking::getTourId)
+                .collect(Collectors.toSet());
+            List<TourResponse> tours = tourServiceClient.getToursByIds(new ArrayList<>(tourIds));
+            tourMap = tours.stream()
+                .collect(Collectors.toMap(TourResponse::getId, Function.identity(), (a, b) -> a));
+        } catch (Exception e) {
+            log.warn("Could not batch-fetch tour info: {}", e.getMessage());
+        }
+
+        final Map<Long, TourResponse> finalTourMap = tourMap;
+        return bookings.stream().map(booking -> {
+            BookingResponse response = BookingResponse.fromBooking(booking);
+            TourResponse tour = finalTourMap.get(booking.getTourId());
+            if (tour != null) response.withTourInfo(tour);
+            return response;
+        }).toList();
+    }
+
+    // ── Analytics Methods ──
+
+    public List<Map<String, Object>> getProfitByTour() {
+        List<Booking> allBookings = bookingRepository.findAll();
+        List<Expense> approvedExpenses = expenseRepository.findByStatusOrderByCreatedAtDesc("APPROVED");
+
+        // Revenue by tour
+        Map<Long, BigDecimal> revenueByTour = allBookings.stream()
+            .filter(b -> !"CANCELLED".equals(b.getStatus()))
+            .collect(Collectors.groupingBy(Booking::getTourId,
+                Collectors.reducing(BigDecimal.ZERO, Booking::getTotalPrice, BigDecimal::add)));
+
+        // Cost by tour
+        Map<Long, BigDecimal> costByTour = approvedExpenses.stream()
+            .filter(e -> e.getTourId() != null)
+            .collect(Collectors.groupingBy(Expense::getTourId,
+                Collectors.reducing(BigDecimal.ZERO, Expense::getAmount, BigDecimal::add)));
+
+        // Tour titles
+        Map<Long, String> tourTitles = Map.of();
+        try {
+            Set<Long> allTourIds = new java.util.HashSet<>();
+            allTourIds.addAll(revenueByTour.keySet());
+            allTourIds.addAll(costByTour.keySet());
+            if (!allTourIds.isEmpty()) {
+                List<TourResponse> tours = tourServiceClient.getToursByIds(new ArrayList<>(allTourIds));
+                tourTitles = tours.stream().collect(Collectors.toMap(TourResponse::getId, TourResponse::getTitle, (a, b) -> a));
+            }
+        } catch (Exception e) {
+            log.warn("Could not fetch tour titles for analytics: {}", e.getMessage());
+        }
+
+        Set<Long> allIds = new java.util.HashSet<>();
+        allIds.addAll(revenueByTour.keySet());
+        allIds.addAll(costByTour.keySet());
+
+        final Map<Long, String> titles = tourTitles;
+        return allIds.stream().map(tourId -> {
+            BigDecimal revenue = revenueByTour.getOrDefault(tourId, BigDecimal.ZERO);
+            BigDecimal cost = costByTour.getOrDefault(tourId, BigDecimal.ZERO);
+            BigDecimal profit = revenue.subtract(cost);
+            return Map.<String, Object>of(
+                "tourId", tourId,
+                "tourTitle", titles.getOrDefault(tourId, "Tour #" + tourId),
+                "totalRevenue", revenue,
+                "totalCost", cost,
+                "profit", profit
+            );
+        }).sorted((a, b) -> ((BigDecimal) b.get("profit")).compareTo((BigDecimal) a.get("profit"))).toList();
+    }
+
+    public Map<String, Object> getAnalyticsSummary() {
+        List<Booking> allBookings = bookingRepository.findAll();
+        List<Expense> allExpenses = expenseRepository.findAll();
+
+        BigDecimal totalRevenue = allBookings.stream()
+            .filter(b -> !"CANCELLED".equals(b.getStatus()))
+            .map(Booking::getTotalPrice)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalApprovedExpenses = allExpenses.stream()
+            .filter(e -> "APPROVED".equals(e.getStatus()))
+            .map(Expense::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal pendingExpenses = allExpenses.stream()
+            .filter(e -> "PENDING".equals(e.getStatus()))
+            .map(Expense::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        long pendingCount = allExpenses.stream().filter(e -> "PENDING".equals(e.getStatus())).count();
+
+        BigDecimal profit = totalRevenue.subtract(totalApprovedExpenses);
+        double margin = totalRevenue.compareTo(BigDecimal.ZERO) > 0
+            ? profit.doubleValue() / totalRevenue.doubleValue() * 100 : 0;
+
+        return Map.of(
+            "totalRevenue", totalRevenue,
+            "totalExpenses", totalApprovedExpenses,
+            "profit", profit,
+            "margin", Math.round(margin * 10) / 10.0,
+            "pendingExpenses", pendingExpenses,
+            "pendingCount", pendingCount
+        );
     }
 }

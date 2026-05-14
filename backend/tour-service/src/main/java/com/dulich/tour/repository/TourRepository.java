@@ -1,15 +1,21 @@
 package com.dulich.tour.repository;
 
 import com.dulich.tour.entity.Tour;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface TourRepository extends JpaRepository<Tour, Long> {
+
+    /** Fetch a single tour with images + departures eagerly loaded */
+    @EntityGraph(attributePaths = {"images", "departures"})
+    Optional<Tour> findWithRelationsById(Long id);
 
     /** Search tours by title or location (case-insensitive) */
     @Query("SELECT t FROM Tour t WHERE " +

@@ -293,6 +293,18 @@ export default function ItineraryScreen({ navigation, route }: Props) {
 
         </View>
       </ScrollView>
+
+      {/* Floating Add Expense Button */}
+      <TouchableOpacity
+        style={[styles.fabExpense, { bottom: insets.bottom + 16 }]}
+        onPress={() => navigation.navigate('CreateExpense', {
+          tourId: booking?.tourId || 0,
+          tourTitle: tourTitle || `Tour #${booking?.tourId}`,
+        })}
+      >
+        <Icon name="cash-plus" size={22} color="#fff" />
+        <Text style={styles.fabExpenseText}>Thêm Chi Phí</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -368,4 +380,12 @@ const styles = StyleSheet.create({
 
   noteDisplayBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFBEB', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
   noteTextValue: { fontSize: 14, color: '#D97706', fontStyle: 'italic', flex: 1 },
+
+  fabExpense: {
+    position: 'absolute', right: 16, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: theme.colors.primary, paddingHorizontal: 20, paddingVertical: 14,
+    borderRadius: 50, elevation: 8,
+    shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
+  },
+  fabExpenseText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

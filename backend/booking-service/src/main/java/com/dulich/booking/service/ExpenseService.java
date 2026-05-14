@@ -5,6 +5,7 @@ import com.dulich.booking.entity.Expense;
 import com.dulich.booking.repository.ExpenseRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +15,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional(readOnly = true)
 public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
@@ -37,11 +39,35 @@ public class ExpenseService {
         return expense;
     }
 
-    public List<Expense> getAll() { return expenseRepository.findAll(); }
-    public List<Expense> getByTourId(Long tourId) { return expenseRepository.findByTourIdOrderByCreatedAtDesc(tourId); }
-    public List<Expense> getByGuideId(Long guideId) { return expenseRepository.findByGuideIdOrderByCreatedAtDesc(guideId); }
-    public List<Expense> getPending() { return expenseRepository.findByStatusOrderByCreatedAtDesc("PENDING"); }
-    public Expense getById(Long id) { return expenseRepository.findById(id).orElseThrow(() -> new RuntimeException("Expense not found: " + id)); }
+    public List<Expense> getAll() {
+        List<Expense> list = expenseRepository.findAll();
+        list.forEach(e -> Hibernate.initialize(e.getAttachments()));
+        return list;
+    }
+
+    public List<Expense> getByTourId(Long tourId) {
+        List<Expense> list = expenseRepository.findByTourIdOrderByCreatedAtDesc(tourId);
+        list.forEach(e -> Hibernate.initialize(e.getAttachments()));
+        return list;
+    }
+
+    public List<Expense> getByGuideId(Long guideId) {
+        List<Expense> list = expenseRepository.findByGuideIdOrderByCreatedAtDesc(guideId);
+        list.forEach(e -> Hibernate.initialize(e.getAttachments()));
+        return list;
+    }
+
+    public List<Expense> getPending() {
+        List<Expense> list = expenseRepository.findByStatusOrderByCreatedAtDesc("PENDING");
+        list.forEach(e -> Hibernate.initialize(e.getAttachments()));
+        return list;
+    }
+
+    public Expense getById(Long id) {
+        Expense e = expenseRepository.findById(id).orElseThrow(() -> new RuntimeException("Expense not found: " + id));
+        Hibernate.initialize(e.getAttachments());
+        return e;
+    }
 
     @Transactional
     public Expense approve(Long id, Long adminId) {

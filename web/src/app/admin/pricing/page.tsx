@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { pricingApi } from '@/lib/api';
-import { Plus, Trash2, Tag, Calendar, Users as UsersIcon, Baby, Zap, Clock, X, Percent, DollarSign, ListFilter, Scissors } from 'lucide-react';
+import { Plus, Trash2, Tag, Calendar, Users as UsersIcon, Baby, Zap, Clock, X, Percent, DollarSign, ListFilter, Scissors, Pencil } from 'lucide-react';
 
 const RULE_TYPE_INFO: Record<string, { label: string; icon: any; color: string; bgColor: string }> = {
   SEASONAL: { label: 'Mùa vụ', icon: Calendar, color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/20' },
@@ -52,6 +52,8 @@ export default function PricingPage() {
   const [ruleForm, setRuleForm] = useState(EMPTY_RULE);
   const [promoForm, setPromoForm] = useState(EMPTY_PROMO);
   const [saving, setSaving] = useState(false);
+  const [editingRuleId, setEditingRuleId] = useState<number | null>(null);
+  const [editingPromoId, setEditingPromoId] = useState<number | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -74,31 +76,55 @@ export default function PricingPage() {
     try { await pricingApi.deletePromo(id); setPromos(promos.filter((p) => p.id !== id)); } catch {}
   };
 
-  const handleCreateRule = async () => {
+  const openEditRule = (r: any) => {
+    setEditingRuleId(r.id);
+    setRuleForm({
+      name: r.name || '', type: r.type || 'SEASONAL',
+      modifierType: r.modifierType || 'PERCENTAGE', modifierValue: r.modifierValue || 0,
+      priority: r.priority || 1, isActive: r.isActive !== false,
+      conditions: r.conditions ? JSON.stringify(r.conditions) : '',
+    });
+    setRuleModal(true);
+  };
+
+  const openEditPromo = (p: any) => {
+    setEditingPromoId(p.id);
+    setPromoForm({
+      code: p.code || '', description: p.description || '',
+      discountPercent: p.discountPercent || 10, maxUses: p.maxUses || 100,
+      validFrom: p.validFrom?.split('T')[0] || '', validUntil: p.validUntil?.split('T')[0] || '',
+    });
+    setPromoModal(true);
+  };
+
+  const handleSaveRule = async () => {
     if (!ruleForm.name.trim()) { alert('Vui lòng nhập tên rule'); return; }
     setSaving(true);
     try {
-      const payload = {
-        ...ruleForm,
-        conditions: ruleForm.conditions ? JSON.parse(ruleForm.conditions) : null,
-      };
-      await pricingApi.createRule(payload);
-      setRuleModal(false);
-      setRuleForm(EMPTY_RULE);
+      const payload = { ...ruleForm, conditions: ruleForm.conditions ? JSON.parse(ruleForm.conditions) : null };
+      if (editingRuleId) {
+        await pricingApi.updateRule(editingRuleId, payload);
+      } else {
+        await pricingApi.createRule(payload);
+      }
+      setRuleModal(false); setRuleForm(EMPTY_RULE); setEditingRuleId(null);
       fetchData();
-    } catch { alert('Lỗi khi tạo rule. Kiểm tra lại JSON conditions.'); }
+    } catch { alert('Lỗi khi lưu rule. Kiểm tra lại JSON conditions.'); }
     finally { setSaving(false); }
   };
 
-  const handleCreatePromo = async () => {
+  const handleSavePromo = async () => {
     if (!promoForm.code.trim()) { alert('Vui lòng nhập mã code'); return; }
     setSaving(true);
     try {
-      await pricingApi.createPromo(promoForm);
-      setPromoModal(false);
-      setPromoForm(EMPTY_PROMO);
+      if (editingPromoId) {
+        await pricingApi.updatePromo(editingPromoId, promoForm);
+      } else {
+        await pricingApi.createPromo(promoForm);
+      }
+      setPromoModal(false); setPromoForm(EMPTY_PROMO); setEditingPromoId(null);
       fetchData();
-    } catch { alert('Lỗi khi tạo promo code'); }
+    } catch { alert('Lỗi khi lưu promo code'); }
     finally { setSaving(false); }
   };
 
@@ -128,12 +154,12 @@ export default function PricingPage() {
         </div>
         
         {tab === 'rules' ? (
-          <button onClick={() => { setRuleForm(EMPTY_RULE); setRuleModal(true); }}
+          <button onClick={() => { setRuleForm(EMPTY_RULE); setEditingRuleId(null); setRuleModal(true); }}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-blue-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all w-full md:w-auto">
             <Plus size={18} /> Thêm Quy Tắc
           </button>
         ) : (
-          <button onClick={() => { setPromoForm(EMPTY_PROMO); setPromoModal(true); }}
+          <button onClick={() => { setPromoForm(EMPTY_PROMO); setEditingPromoId(null); setPromoModal(true); }}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-violet-600 hover:bg-violet-700 dark:bg-violet-500 dark:hover:bg-violet-600 text-white text-sm font-bold rounded-xl shadow-sm shadow-violet-500/20 hover:shadow-md hover:-translate-y-0.5 transition-all w-full md:w-auto">
             <Plus size={18} /> Tạo Promo Code
           </button>
@@ -161,10 +187,16 @@ export default function PricingPage() {
                   <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${info.bgColor} ${info.color}`}>
                     <info.icon size={14} /> {info.label}
                   </div>
-                  <button onClick={() => handleDeleteRule(r.id)}
-                    className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-500/10 dark:text-slate-500 dark:hover:text-red-400 rounded-xl transition-colors">
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => openEditRule(r)}
+                      className="p-2 bg-slate-50 hover:bg-blue-50 text-slate-400 hover:text-blue-600 dark:bg-slate-800 dark:hover:bg-blue-500/10 dark:text-slate-500 dark:hover:text-blue-400 rounded-xl transition-colors" title="Sửa">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => handleDeleteRule(r.id)}
+                      className="p-2 bg-slate-50 hover:bg-red-50 text-slate-400 hover:text-red-600 dark:bg-slate-800 dark:hover:bg-red-500/10 dark:text-slate-500 dark:hover:text-red-400 rounded-xl transition-colors" title="Xóa">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
                 <h3 className="text-lg text-slate-900 dark:text-white font-bold mb-5 truncate" title={r.name}>{r.name}</h3>
                 
@@ -255,11 +287,17 @@ export default function PricingPage() {
                           <span className="flex items-center gap-1.5"><div className="w-1.5 h-1.5 rounded-full bg-red-400"></div> {p.validUntil?.split('T')[0] || '—'}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-4 text-center">
-                        <button onClick={() => handleDeletePromo(p.id)}
-                          className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Xóa mã">
-                          <Trash2 size={18} />
-                        </button>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center justify-center gap-1">
+                          <button onClick={() => openEditPromo(p)}
+                            className="p-2 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-xl text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors" title="Sửa">
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => handleDeletePromo(p.id)}
+                            className="p-2 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Xóa">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -276,7 +314,7 @@ export default function PricingPage() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 dark:border-white/5 shrink-0">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <ListFilter className="text-blue-500" size={24} /> Thêm Quy Tắc Giá
+                <ListFilter className="text-blue-500" size={24} /> {editingRuleId ? 'Sửa Quy Tắc Giá' : 'Thêm Quy Tắc Giá'}
               </h3>
               <button onClick={() => setRuleModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 transition-colors"><X size={20} /></button>
             </div>
@@ -337,16 +375,102 @@ export default function PricingPage() {
                 </div>
               </div>
               
-              <div>
-                <label className={labelCls}>
-                  Cấu Hình Nâng Cao (JSON)
-                  <span className="text-[10px] font-normal text-slate-400 ml-2 normal-case tracking-normal">Tùy chọn</span>
-                </label>
-                <textarea value={ruleForm.conditions}
-                  onChange={(e) => setRuleForm({ ...ruleForm, conditions: e.target.value })}
-                  placeholder='{"minGroup": 5, "maxGroup": 10}' rows={3} 
-                  className={inputCls + ' font-mono text-xs resize-none bg-slate-900 text-emerald-400 placeholder-slate-600 focus:ring-slate-500'} />
-              </div>
+              {/* Dynamic Conditions Form based on rule type */}
+              {(() => {
+                let parsed: Record<string, any> = {};
+                try { parsed = ruleForm.conditions ? JSON.parse(ruleForm.conditions) : {}; } catch { parsed = {}; }
+                const update = (obj: Record<string, any>) => setRuleForm({ ...ruleForm, conditions: JSON.stringify(obj) });
+
+                if (ruleForm.type === 'SEASONAL') {
+                  return (
+                    <div className="p-5 bg-amber-50/50 dark:bg-amber-500/5 rounded-2xl border border-amber-200 dark:border-amber-500/10 space-y-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calendar size={16} className="text-amber-600 dark:text-amber-400" />
+                        <span className={labelCls + ' !mb-0'}>Khoảng Thời Gian Mùa Vụ</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Bắt đầu (MM-DD)</label>
+                          <input type="text" placeholder="06-01" maxLength={5}
+                            value={parsed.seasonStart || ''} onChange={(e) => update({ ...parsed, seasonStart: e.target.value })}
+                            className={inputCls + ' font-mono text-center'} />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Kết thúc (MM-DD)</label>
+                          <input type="text" placeholder="08-31" maxLength={5}
+                            value={parsed.seasonEnd || ''} onChange={(e) => update({ ...parsed, seasonEnd: e.target.value })}
+                            className={inputCls + ' font-mono text-center'} />
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">Ví dụ: 06-01 đến 08-31 = mùa hè</p>
+                    </div>
+                  );
+                }
+
+                if (ruleForm.type === 'GROUP') {
+                  return (
+                    <div className="p-5 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-200 dark:border-blue-500/10 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UsersIcon size={16} className="text-blue-600 dark:text-blue-400" />
+                        <span className={labelCls + ' !mb-0'}>Điều Kiện Nhóm</span>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Số khách tối thiểu</label>
+                        <input type="number" min={2} max={100} placeholder="5"
+                          value={parsed.minGroup || ''} onChange={(e) => update({ ...parsed, minGroup: +e.target.value })}
+                          className={inputCls + ' max-w-[160px]'} />
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">Áp dụng khi tổng số khách ≥ giá trị này</p>
+                    </div>
+                  );
+                }
+
+                if (ruleForm.type === 'EARLYBIRD' || ruleForm.type === 'LASTMINUTE') {
+                  const isEarly = ruleForm.type === 'EARLYBIRD';
+                  return (
+                    <div className={`p-5 rounded-2xl border space-y-3 ${isEarly ? 'bg-emerald-50/50 dark:bg-emerald-500/5 border-emerald-200 dark:border-emerald-500/10' : 'bg-red-50/50 dark:bg-red-500/5 border-red-200 dark:border-red-500/10'}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        {isEarly ? <Clock size={16} className="text-emerald-600 dark:text-emerald-400" /> : <Zap size={16} className="text-red-600 dark:text-red-400" />}
+                        <span className={labelCls + ' !mb-0'}>{isEarly ? 'Đặt Sớm Trước' : 'Đặt Phút Chót'}</span>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Số ngày trước khởi hành</label>
+                        <input type="number" min={1} max={365} placeholder={isEarly ? '30' : '3'}
+                          value={parsed.daysBeforeDeparture || ''} onChange={(e) => update({ ...parsed, daysBeforeDeparture: +e.target.value })}
+                          className={inputCls + ' max-w-[160px]'} />
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                        {isEarly ? 'Áp dụng khi đặt trước ≥ N ngày' : 'Áp dụng khi còn ≤ N ngày'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                if (ruleForm.type === 'AGE') {
+                  return (
+                    <div className="p-5 bg-pink-50/50 dark:bg-pink-500/5 rounded-2xl border border-pink-200 dark:border-pink-500/10 space-y-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Baby size={16} className="text-pink-600 dark:text-pink-400" />
+                        <span className={labelCls + ' !mb-0'}>Điều Kiện Độ Tuổi</span>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Tuổi tối đa</label>
+                        <input type="number" min={1} max={120} placeholder="12"
+                          value={parsed.maxAge || ''} onChange={(e) => update({ ...parsed, maxAge: +e.target.value })}
+                          className={inputCls + ' max-w-[160px]'} />
+                      </div>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">Áp dụng cho khách có tuổi ≤ giá trị này (trẻ em)</p>
+                    </div>
+                  );
+                }
+
+                // PROMO or unknown — no conditions needed
+                return (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-slate-100 dark:border-white/5">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 text-center">Loại này không cần cấu hình điều kiện bổ sung.</p>
+                  </div>
+                );
+              })()}
               
               <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800">
                 <input type="checkbox" id="ruleActive" checked={ruleForm.isActive}
@@ -360,9 +484,9 @@ export default function PricingPage() {
             
             <div className="flex justify-end gap-3 px-8 py-5 border-t border-slate-100 dark:border-white/5 shrink-0 bg-slate-50 dark:bg-slate-800/30 rounded-b-3xl">
               <button onClick={() => setRuleModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors">Hủy</button>
-              <button onClick={handleCreateRule} disabled={saving}
+              <button onClick={handleSaveRule} disabled={saving}
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-sm transition-all">
-                {saving ? 'Đang lưu...' : 'Lưu Quy Tắc'}
+                {saving ? 'Đang lưu...' : editingRuleId ? 'Cập Nhật' : 'Lưu Quy Tắc'}
               </button>
             </div>
           </div>
@@ -375,7 +499,7 @@ export default function PricingPage() {
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 dark:border-white/5">
               <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Scissors className="text-violet-500" size={24} /> Tạo Mã Khuyến Mãi
+                <Scissors className="text-violet-500" size={24} /> {editingPromoId ? 'Sửa Mã Khuyến Mãi' : 'Tạo Mã Khuyến Mãi'}
               </h3>
               <button onClick={() => setPromoModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 transition-colors"><X size={20} /></button>
             </div>
@@ -387,7 +511,8 @@ export default function PricingPage() {
                   <div className="relative">
                     <Tag className="absolute left-3.5 top-1/2 -translate-y-1/2 text-violet-500" size={16} />
                     <input value={promoForm.code} onChange={(e) => setPromoForm({ ...promoForm, code: e.target.value.toUpperCase() })}
-                      placeholder="SUMMER25" className={inputCls + ' font-mono uppercase pl-10 text-violet-700 dark:text-violet-400 font-bold'} />
+                      placeholder="SUMMER25" readOnly={!!editingPromoId}
+                      className={inputCls + ' font-mono uppercase pl-10 text-violet-700 dark:text-violet-400 font-bold' + (editingPromoId ? ' opacity-60 cursor-not-allowed' : '')} />
                   </div>
                 </div>
                 <div>
@@ -431,9 +556,9 @@ export default function PricingPage() {
             
             <div className="flex justify-end gap-3 px-8 py-5 border-t border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-slate-800/30 rounded-b-3xl">
               <button onClick={() => setPromoModal(false)} className="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-colors">Hủy</button>
-              <button onClick={handleCreatePromo} disabled={saving}
+              <button onClick={handleSavePromo} disabled={saving}
                 className="px-6 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-sm transition-all">
-                {saving ? 'Đang tạo...' : 'Lưu Mã KM'}
+                {saving ? 'Đang lưu...' : editingPromoId ? 'Cập Nhật' : 'Lưu Mã KM'}
               </button>
             </div>
           </div>

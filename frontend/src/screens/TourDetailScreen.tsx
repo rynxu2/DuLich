@@ -223,32 +223,58 @@ export default function TourDetailScreen({ navigation, route }: Props) {
           </View>
 
           {/* Section: Lịch Trình (Vertical Timeline) */}
-          {tour.itinerary?.days && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Lịch Trình Chi Tiết</Text>
-              <View style={styles.timelineWrapper}>
-                {tour.itinerary.days.map((day, dIdx) => {
-                  const isLastDay = dIdx === tour.itinerary!.days!.length - 1;
-                  return (
-                    <View key={day.day} style={styles.timelineRow}>
-                      <View style={styles.timelineLeft}>
-                        <View style={styles.timelineDot} />
-                        {!isLastDay && <View style={styles.timelineLine} />}
-                      </View>
-                      <View style={styles.timelineContent}>
-                        <Text style={styles.timelineDayTitle}>Ngày {day.day}</Text>
-                        <View style={styles.timelineActivities}>
-                          {day.activities?.map((act, aIdx) => (
-                            <Text key={aIdx} style={styles.timelineActText}>• {act}</Text>
-                          ))}
+          {tour.itinerary && Object.keys(tour.itinerary).length > 0 && (() => {
+            // Normalize both formats into [{title, activities}]
+            let days: {title: string; activities: string[]}[] = [];
+            const itObj = tour.itinerary as any;
+            
+            if (itObj.days && Array.isArray(itObj.days)) {
+              // Old nested format: {days: [{day: 1, activities: [...]}]}
+              days = itObj.days.map((d: any) => ({
+                title: `Ngày ${d.day || ''}`,
+                activities: Array.isArray(d.activities) ? d.activities : [String(d.activities || '')],
+              }));
+            } else {
+              // Flat map format: {"Ngày 1": "line1\nline2"}
+              days = Object.entries(itObj)
+                .filter(([k]) => k !== 'days')
+                .map(([k, v]) => ({
+                  title: k,
+                  activities: typeof v === 'string' 
+                    ? v.split('\n').filter((l: string) => l.trim())
+                    : Array.isArray(v) ? v.map(String) : [String(v)],
+                }));
+            }
+            
+            if (days.length === 0) return null;
+            
+            return (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Lịch Trình Chi Tiết</Text>
+                <View style={styles.timelineWrapper}>
+                  {days.map((day, dIdx) => {
+                    const isLastDay = dIdx === days.length - 1;
+                    return (
+                      <View key={dIdx} style={styles.timelineRow}>
+                        <View style={styles.timelineLeft}>
+                          <View style={styles.timelineDot} />
+                          {!isLastDay && <View style={styles.timelineLine} />}
+                        </View>
+                        <View style={styles.timelineContent}>
+                          <Text style={styles.timelineDayTitle}>{day.title}</Text>
+                          <View style={styles.timelineActivities}>
+                            {day.activities.map((act, aIdx) => (
+                              <Text key={aIdx} style={styles.timelineActText}>• {act.trim()}</Text>
+                            ))}
+                          </View>
                         </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          )}
+            );
+          })()}
 
           {/* Section: Khởi Hành */}
           {tour.departures && tour.departures.length > 0 && (

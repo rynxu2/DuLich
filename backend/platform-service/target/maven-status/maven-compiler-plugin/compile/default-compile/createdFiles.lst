@@ -1,0 +1,14 @@
+com\dulich\platform\controller\AdminController.class
+com\dulich\platform\dto\FileResponse$FileResponseBuilder.class
+com\dulich\platform\controller\StorageController.class
+com\dulich\platform\entity\Notification$NotificationBuilder.class
+com\dulich\platform\service\NotificationService.class
+com\dulich\platform\controller\AnalyticsController.class
+com\dulich\platform\service\StorageService.class
+com\dulich\platform\config\MinioConfig.class
+com\dulich\platform\config\RabbitMQConfig.class
+com\dulich\platform\entity\Notification.class
+com\dulich\platform\PlatformServiceApplication.class
+com\dulich\platform\controller\NotificationController.class
+com\dulich\platform\dto\FileResponse.class
+com\dulich\platform\repository\NotificationRepository.class

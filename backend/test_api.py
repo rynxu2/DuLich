@@ -411,6 +411,10 @@ def test_booking():
     if not auth_ok() or not state["user_id"]:
         skip("No auth/user_id → skip Bookings"); return
 
+    header("10.0  Booking → List All")
+    res = requests.get(f"{API}/bookings", headers=h())
+    check(res, "List All Bookings")
+
     header("10.1  Booking → Create")
     res = requests.post(f"{API}/bookings", json={
         "tourId": state["tour_id"], "bookingDate": "2026-12-01",
@@ -635,6 +639,29 @@ def test_storage():
         res = requests.delete(f"{API}/storage", params={"objectName": obj}, headers=h())
         check(res, "Delete Object")
 
+def test_analytics():
+    header("17.1  Analytics → Get profit/summary")
+    res = requests.get(f"{API}/analytics/profit/summary", headers=h())
+    check(res, "Get profit/summary")
+    
+    header("17.2  Analytics → Get All Profits")
+    res = requests.get(f"{API}/analytics/profit/all", headers=h())
+    check(res, "Get All Profits")
+    
+    header("17.3  Analytics → Get Revenue")
+    res = requests.get(f"{API}/analytics/revenue", headers=h())
+    check(res, "Get Revenue")
+
+    header("17.4  Analytics → Get Tour Profit")
+    if state.get("tour_id"):
+        res = requests.get(f"{API}/analytics/profit/tour/{state['tour_id']}", headers=h())
+        check(res, "Get Tour Profit")
+
+    header("17.5  Analytics → Get Cost Breakdown")
+    if state.get("tour_id"):
+        res = requests.get(f"{API}/analytics/cost-breakdown/tour/{state['tour_id']}", headers=h())
+        check(res, "Get Cost Breakdown")
+
 # =============================================================
 #  MAIN RUNNER
 # =============================================================
@@ -662,7 +689,7 @@ if __name__ == "__main__":
         test_itinerary()
         test_pricing()
 
-        # ── Booking Service (8083) ──
+        # # ── Booking Service (8083) ──
         test_booking()
         test_payments()
         test_expenses()
@@ -672,6 +699,8 @@ if __name__ == "__main__":
         test_notifications()
         test_admin()
         test_storage()
+
+        test_analytics()
 
         # ── Summary ──
         total = passed + failed

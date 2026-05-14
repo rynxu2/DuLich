@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePricingPreview } from '../hooks/usePricing';
+import { pricingApi } from '../api/pricing';
 import { useCreateBooking } from '../hooks/useBookings';
 import { useAuthStore } from '../store/useAuthStore';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -23,6 +24,8 @@ type Props = {
 
 const PAYMENT_METHODS = [
   { key: 'CASH', label: 'Tiền mặt', icon: 'cash', color: '#16A34A', bg: '#DCFCE7' },
+  { key: 'SEPAY', label: 'Chuyển khoản', icon: 'bank-transfer', color: '#2563EB', bg: '#DBEAFE' },
+  { key: 'VTCPAY', label: 'Thẻ ATM/Visa', icon: 'credit-card', color: '#DC2626', bg: '#FEE2E2' },
 ];
 
 export default function BookingScreen({ navigation, route }: Props) {
@@ -41,6 +44,9 @@ export default function BookingScreen({ navigation, route }: Props) {
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState('');
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoError, setPromoError] = useState('');
+  const [promoInfo, setPromoInfo] = useState<{ description?: string; discountPercent?: number } | null>(null);
 
   const totalTravelers = adults + children;
   const fallbackTotal = tourPrice * totalTravelers;
@@ -54,6 +60,8 @@ export default function BookingScreen({ navigation, route }: Props) {
 
   const finalPrice = pricePreview?.finalPrice ?? fallbackTotal;
   const savings = pricePreview?.savings ?? 0;
+  const adultUnitPrice = pricePreview?.adultPrice ?? tourPrice;
+  const childUnitPrice = pricePreview?.childPrice ?? Math.round(tourPrice * 0.7);
 
   const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price) + 'đ';
 
@@ -75,7 +83,25 @@ export default function BookingScreen({ navigation, route }: Props) {
         travelers: totalTravelers, specialRequests: note || undefined,
         paymentMethod, promoCode: appliedPromo || undefined,
       });
-      navigation.replace('Payment', { bookingId: res.id });
+
+      // If SePay: navigate to SepayPayment screen with QR code
+      if (paymentMethod === 'SEPAY' && res.checkoutUrl) {
+        navigation.replace('SepayPayment', {
+          bookingId: res.id,
+          checkoutUrl: res.checkoutUrl,
+          qrCode: res.qrCode || '',
+          amount: res.totalPrice,
+        });
+      } else if (paymentMethod === 'VTCPAY' && res.checkoutUrl) {
+        // VTC Pay: open WebView checkout
+        navigation.replace('VtcpayPayment', {
+          bookingId: res.id,
+          checkoutUrl: res.checkoutUrl,
+          amount: res.totalPrice,
+        });
+      } else {
+        navigation.replace('Payment', { bookingId: res.id });
+      }
     } catch {
       Alert.alert('Lỗi', 'Không thể đặt tour lúc này. Vui lòng thử lại.');
     }
@@ -194,15 +220,42 @@ export default function BookingScreen({ navigation, route }: Props) {
           <View style={styles.card}>
             <View style={styles.promoRow}>
               <Icon name="ticket-percent-outline" size={24} color={theme.colors.accent} style={{ marginRight: 10 }} />
-              <TextInput style={[styles.inputField, { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 8, paddingHorizontal: 12, marginRight: 10 }]} value={promoCodeInput} onChangeText={setPromoCodeInput} placeholder="Nhập mã giảm giá..." autoCapitalize="characters" />
-              <TouchableOpacity style={styles.applyBtn} disabled={!promoCodeInput.trim()} onPress={() => setAppliedPromo(promoCodeInput.trim().toUpperCase())}>
-                <Text style={styles.applyBtnText}>Áp dụng</Text>
+              <TextInput style={[styles.inputField, { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 8, paddingHorizontal: 12, marginRight: 10 }]} value={promoCodeInput} onChangeText={(t) => { setPromoCodeInput(t); setPromoError(''); }} placeholder="Nhập mã giảm giá..." autoCapitalize="characters" />
+              <TouchableOpacity style={[styles.applyBtn, promoValidating && { opacity: 0.6 }]} disabled={!promoCodeInput.trim() || promoValidating} onPress={async () => {
+                const code = promoCodeInput.trim().toUpperCase();
+                setPromoValidating(true); setPromoError('');
+                try {
+                  const res = await pricingApi.validatePromo(code, user?.id);
+                  const data = res.data;
+                  if (data.valid) {
+                    setAppliedPromo(code);
+                    setPromoInfo({ description: data.description, discountPercent: data.discountPercent ?? undefined });
+                  } else {
+                    setPromoError(data.message || 'Mã không hợp lệ');
+                    setAppliedPromo('');
+                    setPromoInfo(null);
+                  }
+                } catch {
+                  setPromoError('Không thể kiểm tra mã. Thử lại sau.');
+                } finally { setPromoValidating(false); }
+              }}>
+                {promoValidating ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.applyBtnText}>Áp dụng</Text>}
               </TouchableOpacity>
             </View>
+            {!!promoError && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                <Icon name="alert-circle-outline" size={16} color={theme.colors.error || '#EF4444'} />
+                <Text style={{ color: theme.colors.error || '#EF4444', fontSize: 13, fontWeight: '600' }}>{promoError}</Text>
+              </View>
+            )}
             {appliedPromo ? (
               <View style={styles.promoSuccessTag}>
-                <Text style={styles.promoSuccessText}>Đã áp dụng mã {appliedPromo}</Text>
-                <TouchableOpacity onPress={() => { setAppliedPromo(''); setPromoCodeInput(''); }}><Icon name="close" size={16} color={theme.colors.success} /></TouchableOpacity>
+                <Icon name="check-circle-outline" size={16} color={theme.colors.success} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.promoSuccessText}>Đã áp dụng mã {appliedPromo}{promoInfo?.discountPercent ? ` (-${promoInfo.discountPercent}%)` : ''}</Text>
+                  {promoInfo?.description ? <Text style={{ color: theme.colors.success, fontSize: 11, marginTop: 2 }}>{promoInfo.description}</Text> : null}
+                </View>
+                <TouchableOpacity onPress={() => { setAppliedPromo(''); setPromoCodeInput(''); setPromoInfo(null); }}><Icon name="close" size={16} color={theme.colors.success} /></TouchableOpacity>
               </View>
             ) : null}
 
@@ -219,12 +272,12 @@ export default function BookingScreen({ navigation, route }: Props) {
           <View style={[styles.card, { paddingBottom: 16 }]}>
              <View style={styles.breakdownRow}>
                <Text style={styles.breakdownLabel}>Người lớn ({adults})</Text>
-               <Text style={styles.breakdownValue}>{formatPrice(tourPrice * adults)}</Text>
+               <Text style={styles.breakdownValue}>{formatPrice(adultUnitPrice * adults)}</Text>
              </View>
              {children > 0 && (
                <View style={styles.breakdownRow}>
-                 <Text style={styles.breakdownLabel}>Trẻ em ({children})</Text>
-                 <Text style={styles.breakdownValue}>{formatPrice(tourPrice * children)}</Text>
+                 <Text style={styles.breakdownLabel}>Trẻ em ({children}) <Text style={{ fontSize: 11, color: theme.colors.textLight }}>70%</Text></Text>
+                 <Text style={styles.breakdownValue}>{formatPrice(childUnitPrice * children)}</Text>
                </View>
              )}
              
@@ -235,12 +288,15 @@ export default function BookingScreen({ navigation, route }: Props) {
                </View>
              )}
 
-             {!!appliedPromo && pricePreview?.appliedRules?.map((rule, idx) => (
-                <View key={idx} style={styles.breakdownRow}>
-                  <Text style={[styles.breakdownLabel, { color: theme.colors.success }]}>{rule.ruleName}</Text>
-                  <Text style={[styles.breakdownValue, { color: theme.colors.success }]}>{rule.adjustment > 0 ? '+' : ''}{formatPrice(rule.adjustment)}</Text>
-               </View>
-             ))}
+             {pricePreview?.appliedRules?.map((rule, idx) => {
+                const amount = rule.adjustedAmount ?? rule.adjustment ?? 0;
+                return (
+                  <View key={idx} style={styles.breakdownRow}>
+                    <Text style={[styles.breakdownLabel, { color: amount < 0 ? theme.colors.success : '#F59E0B' }]}>{rule.ruleName}</Text>
+                    <Text style={[styles.breakdownValue, { color: amount < 0 ? theme.colors.success : '#F59E0B' }]}>{amount > 0 ? '+' : ''}{formatPrice(amount)}</Text>
+                  </View>
+                );
+             })}
 
              <View style={[styles.breakdownRow, { marginBottom: 0 }]}>
                <Text style={styles.breakdownLabel}>Thuế & Phí</Text>
@@ -253,12 +309,14 @@ export default function BookingScreen({ navigation, route }: Props) {
                <Text style={styles.totalText}>Tổng Cộng</Text>
                <Text style={styles.totalValueLg}>{formatPrice(finalPrice)}</Text>
              </View>
-             {!!appliedPromo && savings > 0 && <Text style={styles.savingsSubtext}>(Bạn đã tiết kiệm được {formatPrice(savings)})</Text>}
+             {savings > 0 && <Text style={styles.savingsSubtext}>(Bạn đã tiết kiệm được {formatPrice(savings)})</Text>}
           </View>
 
           <View style={styles.policyFooterRow}>
             <Icon name="shield-check" size={16} color={theme.colors.success} />
-            <Text style={styles.policyFooterText}>Thanh toán tiền mặt khi gặp hướng dẫn viên.</Text>
+            <Text style={styles.policyFooterText}>
+              {paymentMethod === 'SEPAY' ? 'Thanh toán an toàn qua SePay.' : paymentMethod === 'VTCPAY' ? 'Thanh toán an toàn qua thẻ ngân hàng.' : 'Thanh toán tiền mặt khi gặp hướng dẫn viên.'}
+            </Text>
           </View>
 
         </ScrollView>

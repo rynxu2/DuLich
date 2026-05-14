@@ -54,15 +54,26 @@ export interface PricePreviewParams {
 
 export interface AppliedRule {
   ruleName: string;
-  ruleType: string;
-  adjustment: number;
+  type: string;
+  modifierType: string;
+  modifierValue: number;
+  adjustedAmount: number;
+  // Legacy fallback alias
+  adjustment?: number;
 }
 
 export interface PricePreviewResponse {
+  tourId: number;
   basePrice: number;
+  adultPrice: number;
+  childPrice: number;
+  adults: number;
+  children: number;
+  subtotal: number;
   finalPrice: number;
   totalParticipants: number;
   appliedRules: AppliedRule[];
+  totalDiscount: number;
   savings: number;
   currency: string;
 }
@@ -98,4 +109,20 @@ export const pricingApi = {
 
   deletePromo: (id: number) =>
     apiClient.delete(`/pricing/promos/${id}`),
+
+  /** Validate a promo code without consuming it */
+  validatePromo: (code: string, userId?: number) =>
+    apiClient.get<PromoValidationResponse>('/pricing/validate-promo', {
+      params: { code, userId },
+    }),
 };
+
+export interface PromoValidationResponse {
+  valid: boolean;
+  code: string;
+  message: string;
+  description?: string;
+  discountValue?: number;
+  discountType?: string;
+  discountPercent?: number;
+}

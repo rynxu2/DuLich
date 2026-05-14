@@ -21,4 +21,8 @@ public class BookingRequest {
     private String contactPhone;
     private String specialRequests;
     private String paymentMethod;
+    private String promoCode;
+    private Long departureId;
+    private int adults = 1;
+    private int children = 0;
 }

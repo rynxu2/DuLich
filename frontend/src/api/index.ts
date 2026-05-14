@@ -20,7 +20,7 @@ export { toursApi } from './tours';
 export type { Tour, TourImage, TourDeparture, TourListParams } from './tours';
 
 export { bookingsApi } from './bookings';
-export type { Booking, BookingResponse, CreateBookingData } from './bookings';
+export type { Booking, BookingResponse, CreateBookingData, PageResponse } from './bookings';
 
 export { paymentsApi } from './payments';
 export type { Payment, Transaction, PaymentMethod, PaymentStatus } from './payments';

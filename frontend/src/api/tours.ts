@@ -38,12 +38,7 @@ export interface Tour {
   maxParticipants: number;
   rating: number;
   reviewCount: number;
-  itinerary: {
-    days: Array<{
-      day: number;
-      activities: string[];
-    }>;
-  };
+  itinerary: Record<string, string> | null;
   imageUrl: string;
   isActive: boolean;
   images: TourImage[];

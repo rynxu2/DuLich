@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { expensesApi } from '@/lib/api';
-import { CheckCircle, XCircle, Clock, DollarSign, ListFilter, CreditCard, X, ShieldAlert } from 'lucide-react';
+import { expensesApi, toursApi } from '@/lib/api';
+import { CheckCircle, XCircle, Clock, DollarSign, ListFilter, CreditCard, X, ShieldAlert, Plus } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
 const CATEGORY_LABELS: Record<string, string> = {
-  FOOD: '🍜 Ăn uống',
   TRANSPORT: '🚗 Di chuyển',
   ACCOMMODATION: '🏨 Lưu trú',
-  TICKETS: '🎟 Vé tham quan',
-  UNEXPECTED: '⚡ Phát sinh',
+  MEALS: '🍜 Ăn uống',
+  ENTRANCE_FEE: '🎟 Vé tham quan',
+  GUIDE_FEE: '👤 Phí HDV',
+  EQUIPMENT: '🎒 Thiết bị',
+  INSURANCE: '🛡 Bảo hiểm',
+  EMERGENCY: '⚡ Phát sinh',
+  OTHER: '📦 Khác',
 };
 
 const STATUS_STYLES: Record<string, { icon: any; class: string; label: string }> = {
@@ -44,6 +48,10 @@ export default function ExpensesPage() {
   const [saving, setSaving] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+  const [showCreate, setShowCreate] = useState(false);
+  const [tours, setTours] = useState<any[]>([]);
+  const [newExpense, setNewExpense] = useState({ tourId: '', category: 'MEALS', amount: '', description: '' });
+  const [creating, setCreating] = useState(false);
 
   const fetch = async () => {
     setLoading(true);
@@ -57,6 +65,10 @@ export default function ExpensesPage() {
     fetch(); 
     setCurrentPage(1);
   }, [tab]);
+
+  useEffect(() => {
+    toursApi.list().then(res => setTours(Array.isArray(res.data) ? res.data : [])).catch(() => {});
+  }, []);
 
   const totalPages = Math.ceil(expenses.length / pageSize);
   const currentExpenses = expenses.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -120,6 +132,10 @@ export default function ExpensesPage() {
             </div>
           </div>
         )}
+        <button onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-bold transition-all shadow-sm hover:shadow-md shrink-0">
+          <Plus size={18} /> Thêm Chi Phí
+        </button>
       </div>
 
       {/* Expense Table */}
@@ -244,6 +260,77 @@ export default function ExpensesPage() {
               <button onClick={handleReject} disabled={saving || !rejectReason.trim()}
                 className="px-6 py-2.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2">
                 {saving ? 'Đang xử lý...' : 'Xác nhận Từ Chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Expense Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 dark:bg-black/60 backdrop-blur-md p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CreditCard className="text-blue-500" size={24} /> Thêm Chi Phí Mới
+              </h3>
+              <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full text-slate-500 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Tour <span className="text-red-500">*</span></label>
+                <select value={newExpense.tourId} onChange={(e) => setNewExpense({ ...newExpense, tourId: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm">
+                  <option value="">-- Chọn tour --</option>
+                  {tours.map((t: any) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Hạng mục <span className="text-red-500">*</span></label>
+                <select value={newExpense.category} onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm">
+                  {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Số tiền (VNĐ) <span className="text-red-500">*</span></label>
+                <input type="number" value={newExpense.amount} onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                  placeholder="VD: 500000" min="0"
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">Mô tả</label>
+                <textarea value={newExpense.description} onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                  placeholder="Mô tả chi phí phát sinh..." rows={3}
+                  className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all resize-none text-sm" />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button onClick={() => setShowCreate(false)}
+                className="px-5 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">Hủy</button>
+              <button
+                disabled={creating || !newExpense.tourId || !newExpense.amount}
+                onClick={async () => {
+                  setCreating(true);
+                  try {
+                    await expensesApi.create({
+                      tourId: Number(newExpense.tourId),
+                      category: newExpense.category as any,
+                      amount: Number(newExpense.amount),
+                      description: newExpense.description,
+                    });
+                    setShowCreate(false);
+                    setNewExpense({ tourId: '', category: 'MEALS', amount: '', description: '' });
+                    fetch();
+                  } catch { alert('Không thể tạo chi phí'); }
+                  finally { setCreating(false); }
+                }}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold rounded-xl shadow-sm hover:shadow-md transition-all flex items-center gap-2">
+                {creating ? 'Đang tạo...' : 'Tạo Chi Phí'}
               </button>
             </div>
           </div>

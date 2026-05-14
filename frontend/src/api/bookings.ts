@@ -14,6 +14,17 @@
  */
 import apiClient from './client';
 
+/** Spring Page<T> response shape */
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+}
+
 export interface Booking {
   id: number;
   userId: number;
@@ -26,7 +37,7 @@ export interface Booking {
   contactName?: string;
   contactPhone?: string;
   specialRequests?: string;
-  paymentMethod: string;     // CASH
+  paymentMethod: string;     // CASH | SEPAY | VTCPAY
   paymentStatus: string;     // UNPAID | PAID | REFUNDED
   paidAt?: string;
   createdAt: string;
@@ -43,6 +54,8 @@ export interface BookingResponse extends Booking {
   tourImage?: string;
   tourDuration?: number;
   tourRating?: number;
+  checkoutUrl?: string;      // SePay QR checkout URL (when paymentMethod=SEPAY)
+  qrCode?: string;           // VietQR image URL
 }
 
 export interface CreateBookingData {
@@ -53,7 +66,7 @@ export interface CreateBookingData {
   contactName?: string;
   contactPhone?: string;
   specialRequests?: string;
-  paymentMethod?: string;    // CASH
+  paymentMethod?: string;    // CASH | SEPAY | VTCPAY
   promoCode?: string;        // Added for pricing evaluation integration
 }
 
@@ -69,11 +82,17 @@ export const bookingsApi = {
    * booking.created → Payment → payment.success → CONFIRMED
    */
   create: (data: CreateBookingData) =>
-    apiClient.post<Booking>('/bookings', data),
+    apiClient.post<BookingResponse>('/bookings', data),
 
   /** Get user's bookings with enriched tour info */
   getByUser: (userId: number) =>
     apiClient.get<BookingResponse[]>(`/bookings/user/${userId}`),
+
+  /** Paginated user bookings (for infinite scroll) */
+  getByUserPaginated: (userId: number, page: number, size: number) =>
+    apiClient.get<PageResponse<BookingResponse>>(`/bookings/user/${userId}`, {
+      params: { page, size },
+    }),
 
   /** Get booking detail with enriched tour info */
   getById: (id: number) =>

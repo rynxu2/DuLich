@@ -191,7 +191,8 @@ export default function AnalyticsPage() {
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Doanh Thu Theo Tháng (Triệu VNĐ)</h3>
             </div>
             {revenueChart.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <div style={{ width: '100%', height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={revenueChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
@@ -206,6 +207,7 @@ export default function AnalyticsPage() {
                   <Area type="monotone" dataKey="revenue" stroke="#10b981" fill="url(#revGrad)" strokeWidth={3} activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                 <TrendingUp size={32} className="mb-3 opacity-20" />
@@ -226,8 +228,7 @@ export default function AnalyticsPage() {
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Phân Bố Trạng Thái Booking</h3>
             </div>
             {statusChart.length > 0 ? (
-              <div className="flex-1 min-h-[280px] relative">
-                <ResponsiveContainer width="100%" height="100%">
+              <div style={{ width: '100%', height: 280 }} className="relative">                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={statusChart} cx="50%" cy="50%" innerRadius={70} outerRadius={110}
                       paddingAngle={5} dataKey="value" stroke="none">
@@ -269,7 +270,8 @@ export default function AnalyticsPage() {
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Phương Thức Thanh Toán</h3>
             </div>
             {paymentChart.length > 0 ? (
-              <ResponsiveContainer width="100%" height={280}>
+              <div style={{ width: '100%', height: 280 }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={paymentChart} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.2} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} />
@@ -278,6 +280,7 @@ export default function AnalyticsPage() {
                   <Bar dataKey="value" fill="#8b5cf6" radius={[6, 6, 0, 0]} maxBarSize={60} />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="h-[280px] flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                 <CreditCard size={32} className="mb-3 opacity-20" />

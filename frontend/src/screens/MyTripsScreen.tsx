@@ -1,7 +1,7 @@
 /**
  * Premium My Trips Screen — Redesigned with Ticket-style cards
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, ActivityIndicator, Alert, Image
@@ -12,7 +12,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BookingResponse } from '../api/bookings';
-import { useUserBookings, useCancelBooking } from '../hooks/useBookings';
+import { useUserBookingsPaginated, useCancelBooking } from '../hooks/useBookings';
 import { MainTabParamList } from '../navigation/MainTabs';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
@@ -43,8 +43,22 @@ export default function MyTripsScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const [activeFilter, setActiveFilter] = useState('all');
 
-  const { data: bookings = [], isLoading: loading, isRefetching, refetch } = useUserBookings();
+  const {
+    data,
+    isLoading: loading,
+    isRefetching,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useUserBookingsPaginated();
   const { mutateAsync: cancelBooking } = useCancelBooking();
+
+  /** Flatten all loaded pages into a single array */
+  const bookings = useMemo(() => {
+    if (!data?.pages) return [] as BookingResponse[];
+    return data.pages.flatMap(page => page.content || []);
+  }, [data]);
 
   useFocusEffect(
     useCallback(() => {
@@ -205,6 +219,18 @@ export default function MyTripsScreen({ navigation }: Props) {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} />}
+          onEndReached={() => {
+            if (hasNextPage && !isFetchingNextPage) fetchNextPage();
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isFetchingNextPage ? (
+              <View style={styles.footerLoader}>
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+                <Text style={styles.footerText}>Đang tải thêm...</Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconBg}>
@@ -316,5 +342,8 @@ const styles = StyleSheet.create({
     ...theme.shadows.colored,
   },
   exploreBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+
+  footerLoader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 20, gap: 8 },
+  footerText: { fontSize: 13, color: theme.colors.textSecondary, fontWeight: '500' },
 });
 

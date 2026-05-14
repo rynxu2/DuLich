@@ -1,7 +1,10 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { bookingsApi, CreateBookingData } from '../api/bookings';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { bookingsApi, CreateBookingData, BookingResponse } from '../api/bookings';
 import { useAuthStore } from '../store/useAuthStore';
 
+const PAGE_SIZE = 10;
+
+/** Fetch all bookings at once (legacy — used by MyTripsScreen) */
 export function useUserBookings() {
   const { user } = useAuthStore();
   const userId = user?.userId;
@@ -15,7 +18,30 @@ export function useUserBookings() {
     },
     enabled: !!userId,
   });
-}export function useBookingDetail(bookingId?: number) {
+}
+
+/** Infinite-scroll paginated bookings */
+export function useUserBookingsPaginated() {
+  const { user } = useAuthStore();
+  const userId = user?.userId;
+
+  return useInfiniteQuery({
+    queryKey: ['bookings-paginated', userId],
+    queryFn: async ({ pageParam = 0 }) => {
+      if (!userId) return { content: [], totalPages: 0, last: true } as any;
+      const res = await bookingsApi.getByUserPaginated(userId, pageParam, PAGE_SIZE);
+      return res.data;
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.last) return undefined;
+      return lastPage.number + 1;
+    },
+    enabled: !!userId,
+  });
+}
+
+export function useBookingDetail(bookingId?: number) {
   return useQuery({
     queryKey: ['booking', bookingId],
     queryFn: async () => {
@@ -38,9 +64,9 @@ export function useCreateBooking() {
       return res.data;
     },
     onSuccess: () => {
-      // Invalidate both user's bookings and specific tour availability
       if (userId) {
         queryClient.invalidateQueries({ queryKey: ['bookings', userId] });
+        queryClient.invalidateQueries({ queryKey: ['bookings-paginated', userId] });
       }
       queryClient.invalidateQueries({ queryKey: ['tourAvailability'] });
     },
@@ -58,6 +84,7 @@ export function useCancelBooking() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['bookings', user?.userId] });
+      queryClient.invalidateQueries({ queryKey: ['bookings-paginated', user?.userId] });
       queryClient.invalidateQueries({ queryKey: ['tourAvailability', data.departureId] });
     },
   });

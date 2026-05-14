@@ -269,6 +269,14 @@ services:
     environment:
       <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/booking_db?sslmode=require
+      SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID}
+      SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY}
+      SEPAY_API_KEY: ${SEPAY_API_KEY}
+      SEPAY_BANK_CODE: ${SEPAY_BANK_CODE}
+      SEPAY_ACCOUNT_NUMBER: ${SEPAY_ACCOUNT_NUMBER}
+      VTCPAY_WEBSITE_ID: ${VTCPAY_WEBSITE_ID}
+      VTCPAY_SECURITY_CODE: ${VTCPAY_SECURITY_CODE}
+      VTCPAY_RECEIVER_ACCOUNT: ${VTCPAY_RECEIVER_ACCOUNT}
     deploy:
       resources:
         limits:

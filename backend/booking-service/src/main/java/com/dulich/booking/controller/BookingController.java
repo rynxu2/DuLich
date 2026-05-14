@@ -7,6 +7,8 @@ import com.dulich.booking.entity.Booking;
 import com.dulich.booking.service.BookingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +18,8 @@ import java.util.List;
  * Booking Controller — REST API for bookings
  *
  * POST /bookings              — Create booking (userId from gateway header)
- * GET  /bookings/user/{userId} — User's booking history (enriched with tour info)
+ * GET  /bookings              — List all (supports ?page=0&size=20 for pagination)
+ * GET  /bookings/user/{userId} — User's booking history (supports pagination)
  * GET  /bookings/{id}          — Booking details (enriched with tour info)
  * PUT  /bookings/{id}/cancel   — Cancel a booking
  */
@@ -28,12 +31,19 @@ public class BookingController {
     private final BookingService bookingService;
 
     @GetMapping
-    public ResponseEntity<List<BookingResponse>> listAll() {
+    public ResponseEntity<?> listAll(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        if (page != null && size != null) {
+            Page<BookingResponse> result = bookingService.getAllBookingResponses(
+                PageRequest.of(page, Math.min(size, 100)));
+            return ResponseEntity.ok(result);
+        }
         return ResponseEntity.ok(bookingService.getAllBookingResponses());
     }
 
     @PostMapping
-    public ResponseEntity<Booking> createBooking(
+    public ResponseEntity<BookingResponse> createBooking(
             @RequestHeader("X-User-Id") String userId,
             @Valid @RequestBody BookingRequest request) {
         return ResponseEntity.ok(
@@ -41,7 +51,15 @@ public class BookingController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<BookingResponse>> getUserBookings(@PathVariable Long userId) {
+    public ResponseEntity<?> getUserBookings(
+            @PathVariable Long userId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        if (page != null && size != null) {
+            Page<BookingResponse> result = bookingService.getBookingResponsesByUserId(
+                userId, PageRequest.of(page, Math.min(size, 50)));
+            return ResponseEntity.ok(result);
+        }
         return ResponseEntity.ok(bookingService.getBookingResponsesByUserId(userId));
     }
 
@@ -73,5 +91,17 @@ public class BookingController {
     @PutMapping("/{id}/complete")
     public ResponseEntity<Booking> completeBooking(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.completeBooking(id));
+    }
+
+    // ── Analytics Endpoints ──
+
+    @GetMapping("/analytics/profit-by-tour")
+    public ResponseEntity<List<java.util.Map<String, Object>>> profitByTour() {
+        return ResponseEntity.ok(bookingService.getProfitByTour());
+    }
+
+    @GetMapping("/analytics/summary")
+    public ResponseEntity<java.util.Map<String, Object>> analyticsSummary() {
+        return ResponseEntity.ok(bookingService.getAnalyticsSummary());
     }
 }

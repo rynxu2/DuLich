@@ -3,10 +3,13 @@ package com.dulich.tour.service;
 import com.dulich.tour.dto.PricePreviewRequest;
 import com.dulich.tour.dto.PricePreviewResponse;
 import com.dulich.tour.dto.PricePreviewResponse.AppliedRule;
+import com.dulich.tour.dto.PromoValidationResponse;
 import com.dulich.tour.entity.PricingRule;
+import com.dulich.tour.entity.PromoUsage;
 import com.dulich.tour.entity.Tour;
 import com.dulich.tour.repository.PricingRuleRepository;
 import com.dulich.tour.repository.PromoCodeRepository;
+import com.dulich.tour.repository.PromoUsageRepository;
 import com.dulich.tour.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +31,7 @@ public class PricingEngine {
 
     private final PricingRuleRepository ruleRepository;
     private final PromoCodeRepository promoCodeRepository;
+    private final PromoUsageRepository promoUsageRepository;
     private final TourRepository tourRepository;
 
     public PricePreviewResponse preview(PricePreviewRequest request) {
@@ -192,5 +196,64 @@ public class PricingEngine {
                 .adjustedAmount(adj)
                 .build());
         });
+    }
+
+    /**
+     * Validate promo code without side effects.
+     */
+    public PromoValidationResponse validatePromoCode(String code, Long userId) {
+        var opt = promoCodeRepository.findByCode(code.toUpperCase());
+        if (opt.isEmpty()) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Mã giảm giá không tồn tại").build();
+        }
+        var promo = opt.get();
+        if (!promo.getIsActive()) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Mã giảm giá đã bị vô hiệu hóa").build();
+        }
+        if (promo.getCurrentUses() >= promo.getMaxUses()) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Mã giảm giá đã hết lượt sử dụng").build();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (promo.getValidFrom() != null && now.isBefore(promo.getValidFrom())) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Mã giảm giá chưa có hiệu lực").build();
+        }
+        if (promo.getValidUntil() != null && now.isAfter(promo.getValidUntil())) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Mã giảm giá đã hết hạn").build();
+        }
+        if (userId != null && promoUsageRepository.existsByUserIdAndPromoCode(userId, code.toUpperCase())) {
+            return PromoValidationResponse.builder().valid(false).code(code).message("Bạn đã sử dụng mã này rồi").build();
+        }
+        PricingRule rule = promo.getRule();
+        Double discountValue = rule != null ? rule.getModifierValue().abs().doubleValue() : null;
+        String discountType = rule != null ? rule.getModifierType() : null;
+        return PromoValidationResponse.builder()
+            .valid(true).code(code.toUpperCase())
+            .description(promo.getDescription())
+            .message("Mã giảm giá hợp lệ!")
+            .discountValue(discountValue)
+            .discountType(discountType)
+            .discountPercent("PERCENTAGE".equals(discountType) ? discountValue : null)
+            .build();
+    }
+
+    /**
+     * Consume promo code: increment currentUses + track per-user usage.
+     */
+    @org.springframework.transaction.annotation.Transactional
+    public boolean consumePromoCode(String code, Long userId, Long bookingId) {
+        var opt = promoCodeRepository.findByCode(code.toUpperCase());
+        if (opt.isEmpty()) return false;
+        var promo = opt.get();
+        if (promo.getCurrentUses() >= promo.getMaxUses()) return false;
+        if (userId != null && promoUsageRepository.existsByUserIdAndPromoCode(userId, code.toUpperCase())) return false;
+        promo.setCurrentUses(promo.getCurrentUses() + 1);
+        promoCodeRepository.save(promo);
+        if (userId != null) {
+            promoUsageRepository.save(PromoUsage.builder()
+                .userId(userId).promoCode(code.toUpperCase()).bookingId(bookingId).build());
+        }
+        log.info("Promo {} consumed by userId={}, bookingId={}, currentUses={}/{}",
+            code, userId, bookingId, promo.getCurrentUses(), promo.getMaxUses());
+        return true;
     }
 }
