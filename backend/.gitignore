@@ -1,3 +1,4 @@
 .env
 .env.local
 .env.*
+platform-service/src/main/resources/firebase-service-account.json
