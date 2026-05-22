@@ -103,6 +103,29 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
     }
   }, [status]);
 
+  // Auto-redirect to order detail on success
+  const [redirectCountdown, setRedirectCountdown] = useState(3);
+  useEffect(() => {
+    if (status !== 'success') return;
+    const timer = setInterval(() => {
+      setRedirectCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [status]);
+
+  // Navigate when countdown reaches 0 (outside of state setter)
+  useEffect(() => {
+    if (redirectCountdown === 0 && status === 'success') {
+      navigation.replace('Payment', { bookingId });
+    }
+  }, [redirectCountdown, status, bookingId, navigation]);
+
   const formatElapsed = () => {
     const mins = Math.floor(elapsed / 60);
     const secs = elapsed % 60;
@@ -137,11 +160,18 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
           </Text>
           <Text style={styles.successAmount}>{formatPrice(amount)}</Text>
 
+          <View style={styles.redirectNotice}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+            <Text style={styles.redirectText}>
+              Tự động chuyển đến chi tiết đơn hàng sau {redirectCountdown}s...
+            </Text>
+          </View>
+
           <TouchableOpacity
             style={styles.primaryBtn}
             onPress={() => navigation.replace('Payment', { bookingId })}>
             <Icon name="receipt" size={20} color="#fff" />
-            <Text style={styles.primaryBtnText}>Xem Chi Tiết Đơn Hàng</Text>
+            <Text style={styles.primaryBtnText}>Xem Chi Tiết Đơn Hàng Ngay</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -392,7 +422,9 @@ const styles = StyleSheet.create({
   },
   successTitle: { ...theme.typography.h2, color: theme.colors.text, marginBottom: 8 },
   successSubtitle: { ...theme.typography.body, color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 12 },
-  successAmount: { fontSize: 28, fontWeight: '900', color: theme.colors.success, marginBottom: 32 },
+  successAmount: { fontSize: 28, fontWeight: '900', color: theme.colors.success, marginBottom: 20 },
+  redirectNotice: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: theme.colors.primaryMuted, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 20, marginBottom: 24 },
+  redirectText: { fontSize: 13, fontWeight: '600', color: theme.colors.primary },
 
   failCircle: {
     width: 120, height: 120, borderRadius: 60,

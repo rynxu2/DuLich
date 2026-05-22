@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Alert,
-  ScrollView, KeyboardAvoidingView, Platform, Image, TextInput
+  ScrollView, KeyboardAvoidingView, Platform, Image, TextInput, Modal
 } from 'react-native';
 import { ActivityIndicator } from 'react-native-paper';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -27,9 +27,19 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [fullName, setFullName] = useState(user?.fullName || '');
   const [email, setEmail] = useState(user?.email || '');
   const [phone, setPhone] = useState(user?.phone || '');
+  const [dateOfBirth, setDateOfBirth] = useState(user?.dateOfBirth || '');
+  const [address, setAddress] = useState(user?.address || '');
+  const [bio, setBio] = useState(user?.bio || '');
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Separate state for day/month/year inputs in modal
+  const initDob = user?.dateOfBirth ? user.dateOfBirth.split('-') : ['', '', ''];
+  const [dobDay, setDobDay] = useState(initDob[2] || '');
+  const [dobMonth, setDobMonth] = useState(initDob[1] || '');
+  const [dobYear, setDobYear] = useState(initDob[0] || '');
 
   const handleSave = async () => {
     if (!email.trim() || !fullName.trim()) {
@@ -42,6 +52,9 @@ export default function EditProfileScreen({ navigation }: Props) {
         fullName: fullName.trim(),
         phone: phone.trim(),
         avatarUrl: avatarUrl || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        address: address.trim() || undefined,
+        bio: bio.trim() || undefined,
       });
       await restoreSession();
       Alert.alert('Thành công', 'Hồ sơ cá nhân đã được cập nhật mượt mà.', [
@@ -74,6 +87,30 @@ export default function EditProfileScreen({ navigation }: Props) {
         }
       }
     } catch { /* User cancelled */ }
+  };
+
+  const handleDateConfirm = () => {
+    const d = parseInt(dobDay, 10);
+    const m = parseInt(dobMonth, 10);
+    const y = parseInt(dobYear, 10);
+    if (!d || !m || !y || d < 1 || d > 31 || m < 1 || m > 12 || y < 1900 || y > new Date().getFullYear()) {
+      Alert.alert('Ngày không hợp lệ', 'Vui lòng nhập đúng định dạng ngày/tháng/năm.');
+      return;
+    }
+    const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const testDate = new Date(iso);
+    if (isNaN(testDate.getTime()) || testDate > new Date()) {
+      Alert.alert('Ngày không hợp lệ', 'Ngày sinh phải nhỏ hơn ngày hiện tại.');
+      return;
+    }
+    setDateOfBirth(iso);
+    setShowDatePicker(false);
+  };
+
+  const handleDateClear = () => {
+    setDobDay(''); setDobMonth(''); setDobYear('');
+    setDateOfBirth('');
+    setShowDatePicker(false);
   };
 
   return (
@@ -117,6 +154,7 @@ export default function EditProfileScreen({ navigation }: Props) {
           <View style={styles.formContainer}>
             <Text style={styles.sectionHeading}>Hồ Sơ Của Bạn</Text>
             
+            {/* Full Name */}
             <View style={styles.inputGroup}>
               <View style={styles.inputIconBg}><Icon name="card-account-details-outline" size={20} color={theme.colors.primary} /></View>
               <View style={styles.inputBody}>
@@ -128,6 +166,7 @@ export default function EditProfileScreen({ navigation }: Props) {
               </View>
             </View>
 
+            {/* Email (readonly) */}
             <View style={styles.inputGroup}>
               <View style={styles.inputIconBg}><Icon name="email-outline" size={20} color={theme.colors.primary} /></View>
               <View style={styles.inputBody}>
@@ -140,6 +179,7 @@ export default function EditProfileScreen({ navigation }: Props) {
               </View>
             </View>
 
+            {/* Phone */}
             <View style={styles.inputGroup}>
               <View style={styles.inputIconBg}><Icon name="phone-outline" size={20} color={theme.colors.primary} /></View>
               <View style={styles.inputBody}>
@@ -151,7 +191,105 @@ export default function EditProfileScreen({ navigation }: Props) {
                 />
               </View>
             </View>
+
+            {/* Date of Birth */}
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIconBg}><Icon name="calendar-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Ngày sinh</Text>
+                <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+                  <Text style={[styles.textInput, { paddingVertical: 8 }, !dateOfBirth && { color: theme.colors.textLight }]}>
+                    {dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('vi-VN') : 'Chọn ngày sinh...'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Address */}
+            <View style={styles.inputGroup}>
+              <View style={styles.inputIconBg}><Icon name="map-marker-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Địa chỉ</Text>
+                <TextInput
+                  value={address} onChangeText={setAddress}
+                  style={styles.textInput} placeholder="Nhập địa chỉ..." placeholderTextColor={theme.colors.textLight}
+                />
+              </View>
+            </View>
+
+            {/* Bio */}
+            <View style={[styles.inputGroup, { alignItems: 'flex-start', paddingVertical: 16 }]}>
+              <View style={[styles.inputIconBg, { marginTop: 4 }]}><Icon name="text-box-outline" size={20} color={theme.colors.primary} /></View>
+              <View style={styles.inputBody}>
+                <Text style={styles.inputLabel}>Giới thiệu bản thân</Text>
+                <TextInput
+                  value={bio} onChangeText={setBio}
+                  style={[styles.textInput, { minHeight: 80, textAlignVertical: 'top' }]}
+                  placeholder="Viết vài dòng về bản thân..." placeholderTextColor={theme.colors.textLight}
+                  multiline numberOfLines={4}
+                />
+              </View>
+            </View>
           </View>
+
+          {/* Date Picker Modal */}
+          <Modal visible={showDatePicker} transparent animationType="slide">
+            <TouchableOpacity style={styles.datePickerOverlay} activeOpacity={1} onPress={() => setShowDatePicker(false)}>
+              <View style={styles.datePickerContainer} onStartShouldSetResponder={() => true}>
+                <Text style={styles.datePickerTitle}>Chọn Ngày Sinh</Text>
+                <View style={styles.datePickerInputRow}>
+                  <View style={styles.datePickerField}>
+                    <Text style={styles.datePickerFieldLabel}>Ngày</Text>
+                    <TextInput
+                      style={styles.datePickerInput}
+                      placeholder="DD"
+                      placeholderTextColor={theme.colors.textLight}
+                      value={dobDay}
+                      onChangeText={(t) => setDobDay(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                    />
+                  </View>
+                  <Text style={styles.datePickerSep}>/</Text>
+                  <View style={styles.datePickerField}>
+                    <Text style={styles.datePickerFieldLabel}>Tháng</Text>
+                    <TextInput
+                      style={styles.datePickerInput}
+                      placeholder="MM"
+                      placeholderTextColor={theme.colors.textLight}
+                      value={dobMonth}
+                      onChangeText={(t) => setDobMonth(t.replace(/[^0-9]/g, '').slice(0, 2))}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                    />
+                  </View>
+                  <Text style={styles.datePickerSep}>/</Text>
+                  <View style={styles.datePickerField}>
+                    <Text style={styles.datePickerFieldLabel}>Năm</Text>
+                    <TextInput
+                      style={styles.datePickerInput}
+                      placeholder="YYYY"
+                      placeholderTextColor={theme.colors.textLight}
+                      value={dobYear}
+                      onChangeText={(t) => setDobYear(t.replace(/[^0-9]/g, '').slice(0, 4))}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                    />
+                  </View>
+                </View>
+                <View style={styles.datePickerActions}>
+                  <TouchableOpacity style={styles.datePickerActionBtn} onPress={handleDateClear}>
+                    <Icon name="trash-can-outline" size={16} color={theme.colors.error} />
+                    <Text style={{ color: theme.colors.error, fontWeight: '600', marginLeft: 6 }}>Xóa</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.datePickerActionBtn, styles.datePickerConfirmBtn]} onPress={handleDateConfirm}>
+                    <Icon name="check" size={16} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Xác nhận</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </Modal>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -209,4 +347,17 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 24 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { ...theme.typography.button, color: '#fff', fontSize: 16 },
+
+  // Date Picker Modal
+  datePickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  datePickerContainer: { backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 },
+  datePickerTitle: { fontSize: 18, fontWeight: '700', color: theme.colors.text, marginBottom: 20, textAlign: 'center' },
+  datePickerInputRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24, gap: 8 },
+  datePickerField: { flex: 1, alignItems: 'center' },
+  datePickerFieldLabel: { fontSize: 12, color: theme.colors.textSecondary, fontWeight: '600', marginBottom: 6 },
+  datePickerInput: { backgroundColor: theme.colors.surfaceVariant, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 20, fontWeight: '700', color: theme.colors.text, textAlign: 'center', width: '100%' },
+  datePickerSep: { fontSize: 24, fontWeight: '700', color: theme.colors.textLight, marginTop: 18 },
+  datePickerActions: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 },
+  datePickerActionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 16 },
+  datePickerConfirmBtn: { backgroundColor: theme.colors.primary, borderRadius: 16 },
 });

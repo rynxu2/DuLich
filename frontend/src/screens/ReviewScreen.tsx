@@ -43,6 +43,17 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
   const { mutateAsync: createReview, isPending: loading } = useCreateReview();
 
+  // Guard: verify user can review (completedBookings > existingReviews)
+  const { data: canReviewCheck, isLoading: checkingCompleted } = useQuery({
+    queryKey: ['can-review', tourId, user?.id],
+    queryFn: async () => {
+      const res = await reviewsApi.canReview(tourId);
+      return res.data;
+    },
+    enabled: !!user?.id && !!tourId,
+  });
+  const canReview = canReviewCheck?.canReview === true;
+
   const handleSubmit = async () => {
     if (rating === 0) {
       Alert.alert('Lỗi', 'Vui lòng chọn số sao đánh giá');
@@ -94,7 +105,17 @@ export default function ReviewScreen({ navigation, route }: Props) {
         </View>
 
         {/* Write Review Form */}
-        {!submitted ? (
+        {checkingCompleted ? (
+          <View style={styles.formCard}>
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          </View>
+        ) : !canReview ? (
+          <View style={styles.thankYouCard}>
+            <Icon name="lock-outline" size={48} color={theme.colors.textLight} />
+            <Text style={styles.thankYouTitle}>Chưa thể đánh giá</Text>
+            <Text style={styles.thankYouText}>Bạn cần hoàn thành chuyến đi này trước khi viết đánh giá.</Text>
+          </View>
+        ) : !submitted ? (
           <View style={styles.formCard}>
             <Text style={styles.formTitle}>Viết Đánh Giá Của Bạn</Text>
 

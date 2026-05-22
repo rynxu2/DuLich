@@ -51,4 +51,11 @@ export const notificationsApi = {
 
   delete: (id: number) =>
     apiClient.delete(`/notifications/${id}`),
+
+  // FCM Device Token management
+  registerDeviceToken: (token: string, platform: string = 'ANDROID') =>
+    apiClient.post('/notifications/device-token', { token, platform }),
+
+  removeDeviceToken: (token: string) =>
+    apiClient.delete('/notifications/device-token', { data: { token } }),
 };

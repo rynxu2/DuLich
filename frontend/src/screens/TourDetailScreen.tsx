@@ -17,6 +17,7 @@ import { reviewsApi } from '../api/reviews';
 import ReviewCard from '../components/ReviewCard';
 import FavoriteButton from '../components/FavoriteButton';
 import { useTourDetail, useTourAvailability } from '../hooks/useTours';
+import { useAuthStore } from '../store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
@@ -54,11 +55,27 @@ export default function TourDetailScreen({ navigation, route }: Props) {
     enabled: !!tourId,
   });
   const { data: realTimeAvail } = useTourAvailability(selectedDeparture?.id);
+  const { user } = useAuthStore();
+
+  // Check if current user can review (completedBookings > existingReviews)
+  const { data: canReviewCheck } = useQuery({
+    queryKey: ['can-review', tourId, user?.id],
+    queryFn: async () => {
+      const res = await reviewsApi.canReview(tourId);
+      return res.data;
+    },
+    enabled: !!user?.id && !!tourId,
+  });
+  const canReview = canReviewCheck?.canReview === true;
 
   // Auto-select departure
   useEffect(() => {
     if (tour?.departures?.length && !selectedDeparture) {
-      const firstAvailable = tour.departures.find(d => d.status === 'OPEN' && d.availableSlots > 0);
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const firstAvailable = tour.departures.find(d => {
+        const depDate = new Date(d.departureDate); depDate.setHours(0, 0, 0, 0);
+        return d.status === 'OPEN' && d.availableSlots > 0 && depDate >= today;
+      });
       if (firstAvailable) setSelectedDeparture(firstAvailable);
     }
   }, [tour, selectedDeparture]);
@@ -290,21 +307,30 @@ export default function TourDetailScreen({ navigation, route }: Props) {
                   }
                   const isSelected = selectedDeparture?.id === dep.id;
                   const isFull = slots <= 0;
+                  const today = new Date(); today.setHours(0, 0, 0, 0);
+                  const depDate = new Date(dep.departureDate); depDate.setHours(0, 0, 0, 0);
+                  const isPast = depDate < today;
+                  const isDisabled = isFull || isPast;
                   return (
                     <TouchableOpacity
-                      key={dep.id} disabled={isFull} onPress={() => setSelectedDeparture(dep)} activeOpacity={0.8}
-                      style={[styles.depBox, isSelected && styles.depBoxSelected, isFull && styles.depBoxFull]}
+                      key={dep.id} disabled={isDisabled} onPress={() => setSelectedDeparture(dep)} activeOpacity={0.8}
+                      style={[styles.depBox, isSelected && styles.depBoxSelected, isDisabled && styles.depBoxFull, isPast && styles.depBoxExpired]}
                     >
                       {isSelected && <View style={styles.depSelectedRibbon}><Icon name="check" size={12} color="#fff" /></View>}
-                      <Text style={[styles.depDate, isSelected && styles.depTextSelected]}>
+                      {isPast && (
+                        <View style={styles.depExpiredBadge}>
+                          <Text style={styles.depExpiredBadgeText}>Đã qua</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.depDate, isSelected && styles.depTextSelected, isPast && styles.depTextExpired]}>
                         {new Date(dep.departureDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                       </Text>
-                      <Text style={[styles.depYear, isSelected && styles.depTextSelected]}>
+                      <Text style={[styles.depYear, isSelected && styles.depTextSelected, isPast && styles.depTextExpired]}>
                         {new Date(dep.departureDate).getFullYear()}
                       </Text>
                       <View style={styles.depDivider} />
-                      <Text style={[styles.depSlots, isFull ? { color: theme.colors.error } : isSelected ? styles.depTextSelected : {}]}>
-                        {isFull ? 'Hết chỗ' : `Còn ${slots}`}
+                      <Text style={[styles.depSlots, isPast ? styles.depTextExpired : isFull ? { color: theme.colors.error } : isSelected ? styles.depTextSelected : {}]}>
+                        {isPast ? 'Hết hạn' : isFull ? 'Hết chỗ' : `Còn ${slots}`}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -317,9 +343,11 @@ export default function TourDetailScreen({ navigation, route }: Props) {
           <View style={[styles.section, { marginBottom: 40 }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <Text style={styles.sectionTitle}>Đánh Giá</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Review', { tourId: tour.id, tourTitle: tour.title })}>
-                <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Viết Đánh Giá</Text>
-              </TouchableOpacity>
+              {canReview && (
+                <TouchableOpacity onPress={() => navigation.navigate('Review', { tourId: tour.id, tourTitle: tour.title })}>
+                  <Text style={{ color: theme.colors.primary, fontWeight: '600' }}>Viết Đánh Giá</Text>
+                </TouchableOpacity>
+              )}
             </View>
             {displayReviews.length ? (
               <>
@@ -426,6 +454,10 @@ const styles = StyleSheet.create({
   depDivider: { width: '40%', height: 1, backgroundColor: theme.colors.border, marginVertical: 8 },
   depSlots: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
   depTextSelected: { color: '#fff' },
+  depBoxExpired: { opacity: 0.45, backgroundColor: '#F9FAFB', borderStyle: 'dashed' },
+  depExpiredBadge: { position: 'absolute', top: 0, right: 0, backgroundColor: theme.colors.textLight, paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: 8 },
+  depExpiredBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
+  depTextExpired: { color: theme.colors.textLight, textDecorationLine: 'line-through' },
 
   emptyReviews: { padding: 20, alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14 },
   emptyReviewsText: { color: theme.colors.textSecondary, fontStyle: 'italic' },

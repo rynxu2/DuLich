@@ -8,4 +8,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByTourIdOrderByCreatedAtDesc(Long tourId);
     List<Review> findByUserIdOrderByCreatedAtDesc(Long userId);
     long countByUserId(Long userId);
+    long countByUserIdAndTourId(Long userId, Long tourId);
 }

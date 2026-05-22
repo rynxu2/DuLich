@@ -109,6 +109,15 @@ public class TourService {
             }
         }
 
+        // Merge departures via cascade + orphanRemoval
+        if (tourDetails.getDepartures() != null) {
+            tour.getDepartures().clear();
+            for (var dep : tourDetails.getDepartures()) {
+                dep.setTour(tour);
+                tour.getDepartures().add(dep);
+            }
+        }
+
         return tourRepository.save(tour);
     }
 

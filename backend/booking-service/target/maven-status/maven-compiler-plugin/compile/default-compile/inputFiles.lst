@@ -18,8 +18,6 @@ D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booki
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\PaymentController.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\dto\TourResponse.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\entity\Payment.java
-D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\service\VtcpayService.java
-D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\VtcpayReturnController.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\dto\SepayPaymentResult.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\entity\ExpenseAttachment.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\event\PaymentFailedEvent.java
@@ -28,9 +26,7 @@ D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booki
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\event\BookingEventHandler.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\client\IdentityServiceClient.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\config\RabbitMQConfig.java
-D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\config\VtcpayConfig.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\SepayWebhookController.java
-D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\VtcpaySimulateController.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\config\WebSocketConfig.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\dto\PricePreviewResponse.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\service\BookingService.java
@@ -42,5 +38,4 @@ D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booki
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\service\SepayService.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\SepaySimulateController.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\repository\ExpenseRepository.java
-D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\controller\VtcpayIpnController.java
 D:\Antigravity\Beo\DuLich\backend\booking-service\src\main\java\com\dulich\booking\event\PaymentSuccessEvent.java

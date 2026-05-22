@@ -26,7 +26,6 @@ import EditProfileScreen from '../screens/EditProfileScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import SepayPaymentScreen from '../screens/SepayPaymentScreen';
-import VtcpayPaymentScreen from '../screens/VtcpayPaymentScreen';
 import CreateExpenseScreen from '../screens/CreateExpenseScreen';
 
 export type RootStackParamList = {
@@ -42,7 +41,6 @@ export type RootStackParamList = {
   };
   Payment: { bookingId: number };
   SepayPayment: { bookingId: number; checkoutUrl: string; qrCode: string; amount: number };
-  VtcpayPayment: { bookingId: number; checkoutUrl: string; amount: number };
   PaymentHistory: undefined;
   PaymentDetail: { paymentId: number };
   Review: { tourId: number; tourTitle: string };
@@ -95,7 +93,6 @@ export default function AppNavigator() {
             <Stack.Screen name="Booking" component={BookingScreen} />
             <Stack.Screen name="Payment" component={PaymentScreen} />
             <Stack.Screen name="SepayPayment" component={SepayPaymentScreen} />
-            <Stack.Screen name="VtcpayPayment" component={VtcpayPaymentScreen} />
             <Stack.Screen name="PaymentHistory" component={PaymentHistoryScreen} />
             <Stack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
             <Stack.Screen name="Review" component={ReviewScreen} />

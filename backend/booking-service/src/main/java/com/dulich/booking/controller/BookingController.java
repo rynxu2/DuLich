@@ -104,4 +104,16 @@ public class BookingController {
     public ResponseEntity<java.util.Map<String, Object>> analyticsSummary() {
         return ResponseEntity.ok(bookingService.getAnalyticsSummary());
     }
+
+    @GetMapping("/check-completed")
+    public ResponseEntity<java.util.Map<String, Object>> checkCompleted(
+            @RequestParam Long userId,
+            @RequestParam Long tourId) {
+        boolean completed = bookingService.hasCompletedBooking(userId, tourId);
+        long completedCount = bookingService.countCompletedBookings(userId, tourId);
+        return ResponseEntity.ok(java.util.Map.of(
+            "completed", completed,
+            "completedCount", completedCount
+        ));
+    }
 }

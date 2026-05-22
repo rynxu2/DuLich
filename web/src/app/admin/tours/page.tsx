@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toursApi, storageApi } from '@/lib/api';
-import { Plus, Pencil, Trash2, Search, MapPin, X, Image as ImageIcon, Map, Star, CalendarDays, Users, Baby, GripVertical, Crown, Images } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, MapPin, X, Image as ImageIcon, Map, Star, CalendarDays, Users, Baby, GripVertical, Crown, Images, CalendarPlus, Plane } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
 interface GalleryImage {
@@ -10,6 +10,14 @@ interface GalleryImage {
   imageUrl: string;
   caption: string;
   displayOrder: number;
+}
+
+interface DepartureForm {
+  id?: number;
+  departureDate: string;
+  availableSlots: number;
+  priceModifier: number;
+  status: string;
 }
 
 interface TourForm {
@@ -25,12 +33,14 @@ interface TourForm {
   maxChildren: number;
   isActive: boolean;
   itinerary: Array<{ title: string; content: string }>;
+  departures: DepartureForm[];
 }
 
 const EMPTY_FORM: TourForm = {
   title: '', location: '', duration: 1, price: 0, description: '',
   category: '', imageUrl: '', galleryImages: [], maxAdults: 20, maxChildren: 10, isActive: true, 
-  itinerary: [{ title: 'Ngày 1', content: '' }]
+  itinerary: [{ title: 'Ngày 1', content: '' }],
+  departures: [],
 };
 
 const SkeletonRow = () => (
@@ -223,6 +233,13 @@ export default function ToursPage() {
             content: typeof v === 'string' ? v : (Array.isArray(v) ? v.join('\n') : JSON.stringify(v)),
           }));
       })(),
+      departures: (tour.departures || []).map((d: any) => ({
+        id: d.id,
+        departureDate: d.departureDate || '',
+        availableSlots: d.availableSlots ?? 30,
+        priceModifier: d.priceModifier ?? 1,
+        status: d.status || 'OPEN',
+      })),
     });
     setModalOpen(true);
   };
@@ -234,7 +251,7 @@ export default function ToursPage() {
     }
     setSaving(true);
     try {
-      const { maxAdults, maxChildren, galleryImages, ...rest } = form;
+      const { maxAdults, maxChildren, galleryImages, departures, ...rest } = form;
       const payload = {
         ...rest,
         maxParticipants: maxAdults + maxChildren,
@@ -246,6 +263,15 @@ export default function ToursPage() {
           caption: img.caption,
           displayOrder: i,
         })),
+        departures: departures
+          .filter(d => d.departureDate)
+          .map(d => ({
+            ...(d.id ? { id: d.id } : {}),
+            departureDate: d.departureDate,
+            availableSlots: d.availableSlots,
+            priceModifier: d.priceModifier,
+            status: d.status,
+          })),
         itinerary: (form.itinerary || []).reduce((acc: any, curr: any) => {
           if (curr.title.trim()) acc[curr.title.trim()] = curr.content;
           return acc;
@@ -743,6 +769,118 @@ export default function ToursPage() {
                       className="flex items-center gap-2 px-4 py-3 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 font-bold rounded-2xl transition-colors border border-dashed border-blue-200 dark:border-blue-500/30 w-full justify-center"
                     >
                       <Plus size={18} /> Thêm Ngày Mới
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ngày Khởi Hành */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className={labelCls + " mb-0 flex items-center gap-2"}>
+                      <Plane size={14} className="text-blue-500" /> Ngày Khởi Hành
+                    </label>
+                    <span className="text-xs font-medium px-2 py-1 bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 rounded-lg flex items-center gap-1">
+                      <CalendarPlus size={12} /> {form.departures.length} ngày
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {form.departures.map((dep, index) => (
+                      <div key={index} className="relative p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm group hover:border-indigo-300 dark:hover:border-indigo-500/30 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold shrink-0 mt-0.5">
+                            {index + 1}
+                          </div>
+                          <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Ngày</label>
+                              <input
+                                type="date"
+                                value={dep.departureDate}
+                                onChange={(e) => {
+                                  const updated = [...form.departures];
+                                  updated[index] = { ...updated[index], departureDate: e.target.value };
+                                  setForm({ ...form, departures: updated });
+                                }}
+                                className={inputCls + " text-xs"}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Chỗ trống</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={dep.availableSlots}
+                                onChange={(e) => {
+                                  const updated = [...form.departures];
+                                  updated[index] = { ...updated[index], availableSlots: Math.max(0, +e.target.value) };
+                                  setForm({ ...form, departures: updated });
+                                }}
+                                className={inputCls + " text-xs text-center"}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Hệ số giá</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={dep.priceModifier}
+                                onChange={(e) => {
+                                  const updated = [...form.departures];
+                                  updated[index] = { ...updated[index], priceModifier: +e.target.value };
+                                  setForm({ ...form, departures: updated });
+                                }}
+                                className={inputCls + " text-xs text-center"}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1 block">Trạng thái</label>
+                              <select
+                                value={dep.status}
+                                onChange={(e) => {
+                                  const updated = [...form.departures];
+                                  updated[index] = { ...updated[index], status: e.target.value };
+                                  setForm({ ...form, departures: updated });
+                                }}
+                                className={inputCls + " text-xs appearance-none cursor-pointer"}
+                              >
+                                <option value="OPEN">🟢 Mở bán</option>
+                                <option value="FULL">🔴 Hết chỗ</option>
+                                <option value="CLOSED">⚫ Đóng</option>
+                              </select>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setForm({ ...form, departures: form.departures.filter((_, i) => i !== index) });
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors shrink-0 mt-0.5"
+                            title="Xóa ngày này"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                        {dep.priceModifier !== 1 && form.price > 0 && (
+                          <div className="mt-2 ml-11 text-[11px] text-indigo-600 dark:text-indigo-400 font-medium">
+                            Giá áp dụng: {new Intl.NumberFormat('vi-VN').format(Math.round(form.price * dep.priceModifier))}đ/người
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setForm({
+                          ...form,
+                          departures: [
+                            ...form.departures,
+                            { departureDate: '', availableSlots: form.maxAdults + form.maxChildren, priceModifier: 1, status: 'OPEN' },
+                          ],
+                        });
+                      }}
+                      className="flex items-center gap-2 px-4 py-3 text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 font-bold rounded-2xl transition-colors border border-dashed border-indigo-200 dark:border-indigo-500/30 w-full justify-center"
+                    >
+                      <CalendarPlus size={18} /> Thêm Ngày Khởi Hành
                     </button>
                   </div>
                 </div>

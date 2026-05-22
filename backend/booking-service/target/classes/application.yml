@@ -75,12 +75,3 @@ sepay:
   cancel-url: ${SEPAY_CANCEL_URL:dulich://payment/cancel}
   qr-base-url: ${SEPAY_QR_BASE_URL:https://qr.sepay.vn/img}
 
-# VTC Pay Payment Gateway (Sandbox - Card Payment)
-vtcpay:
-  website-id: ${VTCPAY_WEBSITE_ID:200823}
-  security-code: ${VTCPAY_SECURITY_CODE:cd20c242BE77d8de732268902349200515e01e0e6e2bdf1aff5feff725BEf077}
-  receiver-account: ${VTCPAY_RECEIVER_ACCOUNT:0963465816}
-  checkout-url: ${VTCPAY_CHECKOUT_URL:https://alpha1.vtcpay.vn/portalgateway/checkout.html}
-  return-url: ${VTCPAY_RETURN_URL:http://localhost:8080/api/payments/vtcpay/return}
-  currency: VND
-  language: vi

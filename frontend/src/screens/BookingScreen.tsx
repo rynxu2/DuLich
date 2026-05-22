@@ -25,7 +25,6 @@ type Props = {
 const PAYMENT_METHODS = [
   { key: 'CASH', label: 'Tiền mặt', icon: 'cash', color: '#16A34A', bg: '#DCFCE7' },
   { key: 'SEPAY', label: 'Chuyển khoản', icon: 'bank-transfer', color: '#2563EB', bg: '#DBEAFE' },
-  { key: 'VTCPAY', label: 'Thẻ ATM/Visa', icon: 'credit-card', color: '#DC2626', bg: '#FEE2E2' },
 ];
 
 export default function BookingScreen({ navigation, route }: Props) {
@@ -90,13 +89,6 @@ export default function BookingScreen({ navigation, route }: Props) {
           bookingId: res.id,
           checkoutUrl: res.checkoutUrl,
           qrCode: res.qrCode || '',
-          amount: res.totalPrice,
-        });
-      } else if (paymentMethod === 'VTCPAY' && res.checkoutUrl) {
-        // VTC Pay: open WebView checkout
-        navigation.replace('VtcpayPayment', {
-          bookingId: res.id,
-          checkoutUrl: res.checkoutUrl,
           amount: res.totalPrice,
         });
       } else {

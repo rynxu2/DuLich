@@ -1,10 +1,12 @@
 /**
- * ReviewCard Component — Displays a single review with rating stars
+ * ReviewCard Component — Displays a single review with rating stars and real user name
  */
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useQuery } from '@tanstack/react-query';
 import { Review } from '../api/reviews';
+import { usersApi } from '../api/users';
 import { theme } from '../theme';
 
 interface Props {
@@ -12,6 +14,20 @@ interface Props {
 }
 
 export default function ReviewCard({ review }: Props) {
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', review.userId],
+    queryFn: async () => {
+      const res = await usersApi.getProfile(review.userId);
+      return res.data;
+    },
+    enabled: !review.isAnonymous && !!review.userId,
+    staleTime: 5 * 60 * 1000, // Cache 5 min
+  });
+
+  const displayName = review.isAnonymous
+    ? 'Ẩn danh'
+    : profile?.fullName || `Khách hàng #${review.userId}`;
+
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('vi-VN', {
@@ -29,7 +45,7 @@ export default function ReviewCard({ review }: Props) {
             <Icon name="account" size={20} color="#fff" />
           </View>
           <View>
-            <Text style={styles.username}>{review.isAnonymous ? 'Ẩn danh' : `Khách hàng #${review.userId}`}</Text>
+            <Text style={styles.username}>{displayName}</Text>
             <Text style={styles.date}>{formatDate(review.createdAt)}</Text>
           </View>
         </View>

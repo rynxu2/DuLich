@@ -64,29 +64,6 @@ public class PaymentService {
     }
 
     /**
-     * Record a VTC Pay card payment for a booking.
-     * Payment starts in PROCESSING state — updated via IPN or return URL callback.
-     */
-    @Transactional
-    public Payment processVtcpayPayment(Long bookingId, Long userId, BigDecimal amount,
-                                         String checkoutUrl, String referenceNumber) {
-        Payment payment = Payment.builder()
-            .bookingId(bookingId)
-            .userId(userId)
-            .amount(amount)
-            .paymentMethod("VTCPAY")
-            .status("PROCESSING")
-            .providerTransactionId(referenceNumber)
-            .providerResponse(checkoutUrl)
-            .build();
-        payment = paymentRepository.save(payment);
-
-        log.info("VTC Pay payment recorded for booking {}: paymentId={}, refNumber={}",
-                bookingId, payment.getId(), referenceNumber);
-        return payment;
-    }
-
-    /**
      * Confirm a cash payment (called by admin/staff when cash is received).
      */
     @Transactional

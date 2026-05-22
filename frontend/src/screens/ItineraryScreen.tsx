@@ -15,6 +15,7 @@ import { ItineraryItem, itineraryApi } from '../api/itinerary';
 import { Booking, bookingsApi } from '../api/bookings';
 import { guidesApi } from '../api/guides';
 import { usersApi, UserProfile } from '../api/users';
+import { toursApi } from '../api/tours';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { theme } from '../theme';
 
@@ -52,10 +53,63 @@ export default function ItineraryScreen({ navigation, route }: Props) {
       try {
         const bookingRes = await bookingsApi.getById(bookingId);
         setBooking(bookingRes.data);
+
+        let itineraryItems: ItineraryItem[] = [];
         try {
           const itineraryRes = await itineraryApi.getByBooking(bookingRes.data.id);
-          setItems(itineraryRes.data || []);
-        } catch { setItems([]); }
+          itineraryItems = itineraryRes.data || [];
+        } catch { itineraryItems = []; }
+
+        // Auto-populate from tour template if itinerary is empty
+        if (itineraryItems.length === 0 && bookingRes.data.tourId) {
+          try {
+            const tourRes = await toursApi.getById(bookingRes.data.tourId);
+            const template = tourRes.data?.itinerary;
+            if (template && Object.keys(template).length > 0) {
+              const defaultTimes = ['07:30', '10:00', '12:00', '14:00', '16:00', '18:30', '20:00'];
+              const bulkItems: Omit<ItineraryItem, 'id' | 'createdAt' | 'updatedAt'>[] = [];
+
+              if ((template as any).days && Array.isArray((template as any).days)) {
+                // Format 1: {days: [{day: 1, activities: [...]}]}
+                for (const day of (template as any).days) {
+                  const activities: string[] = Array.isArray(day.activities) ? day.activities : [String(day.activities || '')];
+                  activities.forEach((act: string, i: number) => {
+                    bulkItems.push({
+                      bookingId: bookingRes.data.id, dayNumber: day.day || 1,
+                      activityTitle: act.trim(), description: '', location: '',
+                      startTime: defaultTimes[i] || '', status: 'PLANNED',
+                    });
+                  });
+                }
+              } else {
+                // Format 2: flat map {"Ngày 1": "line1\nline2"}
+                let dayCounter = 1;
+                for (const [key, value] of Object.entries(template)) {
+                  if (key === 'days') continue;
+                  const digits = key.replace(/[^0-9]/g, '');
+                  const dayNum = digits ? parseInt(digits, 10) : dayCounter++;
+                  const activities = typeof value === 'string'
+                    ? value.split('\n').map(l => l.trim()).filter(Boolean)
+                    : Array.isArray(value) ? value.map(String) : [String(value)];
+                  activities.forEach((act, i) => {
+                    bulkItems.push({
+                      bookingId: bookingRes.data.id, dayNumber: dayNum,
+                      activityTitle: act, description: '', location: '',
+                      startTime: defaultTimes[i] || '', status: 'PLANNED',
+                    });
+                  });
+                }
+              }
+
+              if (bulkItems.length > 0) {
+                const created = await itineraryApi.createBulk(bulkItems);
+                itineraryItems = created.data || [];
+              }
+            }
+          } catch (e) { console.log('Auto-populate itinerary failed:', e); }
+        }
+
+        setItems(itineraryItems);
         
         try {
           const schedulesRes = await guidesApi.getSchedulesByTour(bookingRes.data.tourId);
@@ -74,10 +128,9 @@ export default function ItineraryScreen({ navigation, route }: Props) {
     fetchData();
   }, [bookingId]);
 
-  const toggleCheck = async (itemId: number) => {
+  const handleStatusChange = async (itemId: number, newStatus: string) => {
     const item = items.find(i => i.id === itemId);
     if (!item) return;
-    const newStatus = item.status === 'COMPLETED' ? 'PLANNED' : 'COMPLETED';
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, status: newStatus } : i));
     try {
       await itineraryApi.update(itemId, { status: newStatus });
@@ -85,6 +138,41 @@ export default function ItineraryScreen({ navigation, route }: Props) {
       setItems(prev => prev.map(i => i.id === itemId ? { ...i, status: item.status } : i));
     }
   };
+
+  const handleItemPress = (itemId: number, dayNumber: number) => {
+    if (!canInteractWithDay(dayNumber)) return;
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    const newStatus = item.status === 'COMPLETED' ? 'PLANNED' : 'COMPLETED';
+    handleStatusChange(itemId, newStatus);
+  };
+
+  const handleItemLongPress = (itemId: number, dayNumber: number) => {
+    if (!canInteractWithDay(dayNumber)) return;
+    Alert.alert(
+      'Trạng thái hoạt động',
+      'Chọn trạng thái cho hoạt động này:',
+      [
+        { text: '✅ Hoàn thành', onPress: () => handleStatusChange(itemId, 'COMPLETED') },
+        { text: '⏭ Bỏ qua', onPress: () => handleStatusChange(itemId, 'SKIPPED') },
+        { text: '↩️ Đặt lại', onPress: () => handleStatusChange(itemId, 'PLANNED') },
+        { text: 'Hủy', style: 'cancel' },
+      ]
+    );
+  };
+
+  // Calculate current day of the trip based on booking date
+  const getCurrentTripDay = (): number => {
+    if (!booking) return 0;
+    const bookingDate = new Date(booking.bookingDate);
+    bookingDate.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.ceil((today.getTime() - bookingDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+  const currentTripDay = getCurrentTripDay();
+  const canInteractWithDay = (dayNumber: number) => currentTripDay >= dayNumber;
 
   const handleShare = async () => {
     let shareText = `📋 Hành Trình: ${tourTitle}\n\n`;
@@ -226,22 +314,59 @@ export default function ItineraryScreen({ navigation, route }: Props) {
                 </View>
               ) : (
                 Object.entries(grouped).map(([day, dayItems]) => {
+                  const dayNum = parseInt(day, 10);
                   const dayCompleted = dayItems.filter(i => i.status === 'COMPLETED').length;
-                  const isDayDone = dayItems.length > 0 && dayCompleted === dayItems.length;
+                  const daySkipped = dayItems.filter(i => i.status === 'SKIPPED').length;
+                  const dayDone = dayCompleted + daySkipped;
+                  const isDayDone = dayItems.length > 0 && dayDone === dayItems.length;
+                  const isCurrentDay = currentTripDay === dayNum;
+                  const isFutureDay = currentTripDay < dayNum;
+                  const isPastDay = currentTripDay > dayNum;
+                  const dayProgress = dayItems.length > 0 ? (dayCompleted / dayItems.length) * 100 : 0;
 
                   return (
-                    <View key={day} style={styles.dayGroup}>
+                    <View key={day} style={[styles.dayGroup, isFutureDay && styles.dayGroupLocked]}>
                       <View style={styles.dayHeaderRow}>
-                         <View style={[styles.dayBadge, isDayDone && { backgroundColor: theme.colors.success }]}>
+                         <View style={[
+                           styles.dayBadge,
+                           isDayDone && { backgroundColor: theme.colors.success },
+                           isCurrentDay && !isDayDone && { backgroundColor: theme.colors.primary },
+                           isFutureDay && { backgroundColor: theme.colors.textLight },
+                         ]}>
+                           {isFutureDay && <Icon name="lock" size={12} color="#fff" style={{ marginRight: 4 }} />}
                            <Text style={styles.dayBadgeText}>Ngày {day}</Text>
                          </View>
-                         <Text style={styles.dayProgressText}>{dayCompleted}/{dayItems.length} hoàn thành</Text>
+                         <Text style={[styles.dayProgressText, isFutureDay && { color: theme.colors.textLight }]}>
+                           {isFutureDay ? 'Chưa mở' : `${dayCompleted}/${dayItems.length} hoàn thành`}
+                         </Text>
+                         {isCurrentDay && (
+                           <View style={styles.currentDayBadge}>
+                             <Text style={styles.currentDayText}>HÔM NAY</Text>
+                           </View>
+                         )}
                          <View style={styles.dayLineDivider} />
                       </View>
 
+                      {/* Per-day progress bar */}
+                      {!isFutureDay && (
+                        <View style={styles.dayProgressBarWrapper}>
+                          <View style={[
+                            styles.dayProgressBarFill,
+                            { width: `${dayProgress}%` },
+                            isPastDay && isDayDone && { backgroundColor: theme.colors.success },
+                            isCurrentDay && { backgroundColor: theme.colors.primary },
+                          ]} />
+                        </View>
+                      )}
+
                       {dayItems.map((item, idx) => (
-                        <View key={item.id} style={{ marginBottom: 12 }}>
-                           <TouchableOpacity activeOpacity={0.9} onPress={() => toggleCheck(item.id)}>
+                        <View key={item.id} style={[{ marginBottom: 12 }, isFutureDay && { opacity: 0.45 }]}>
+                           <TouchableOpacity
+                             activeOpacity={0.9}
+                             onPress={() => handleItemPress(item.id, dayNum)}
+                             onLongPress={() => handleItemLongPress(item.id, dayNum)}
+                             disabled={isFutureDay}
+                           >
                              <TimelineItem
                                activityTitle={item.activityTitle}
                                description={item.description}
@@ -253,6 +378,7 @@ export default function ItineraryScreen({ navigation, route }: Props) {
                            </TouchableOpacity>
                            
                            {/* Beautiful Note Section embedded */}
+                           {!isFutureDay && (
                            <View style={styles.noteWrapper}>
                              <View style={styles.noteLineIndent} />
                              <View style={styles.noteContentArea}>
@@ -283,6 +409,7 @@ export default function ItineraryScreen({ navigation, route }: Props) {
                                )}
                              </View>
                            </View>
+                           )}
                         </View>
                       ))}
                     </View>
@@ -361,11 +488,16 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 14, color: theme.colors.textLight, textAlign: 'center', paddingHorizontal: 20 },
 
   dayGroup: { marginBottom: 32 },
-  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
-  dayBadge: { backgroundColor: theme.colors.accent, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
+  dayGroupLocked: { opacity: 0.65 },
+  dayHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  dayBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.colors.accent, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 12 },
   dayBadgeText: { color: '#fff', fontSize: 14, fontWeight: '900' },
   dayProgressText: { fontSize: 13, color: theme.colors.textSecondary, fontWeight: '600' },
   dayLineDivider: { flex: 1, height: 2, backgroundColor: '#E5E7EB', borderRadius: 1 },
+  currentDayBadge: { backgroundColor: theme.colors.primary + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  currentDayText: { fontSize: 10, fontWeight: '900', color: theme.colors.primary, letterSpacing: 0.5 },
+  dayProgressBarWrapper: { height: 4, backgroundColor: '#F3F4F6', borderRadius: 2, overflow: 'hidden', marginBottom: 16 },
+  dayProgressBarFill: { height: '100%', backgroundColor: theme.colors.success, borderRadius: 2 },
 
   noteWrapper: { flexDirection: 'row', marginTop: -20, marginBottom: 10 },
   noteLineIndent: { width: 32, alignItems: 'center' },

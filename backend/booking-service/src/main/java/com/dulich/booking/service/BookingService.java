@@ -41,7 +41,6 @@ import java.util.stream.Collectors;
  * 1. Fetch tour info (price, itinerary template) from Tour Service
  * 2. Calculate total price and save booking
  * 3. If paymentMethod=SEPAY: create SePay VietQR payment link
- *    If paymentMethod=VTCPAY: create VTC Pay checkout URL for card payment
  * 4. Auto-create itinerary entries from tour template via Itinerary Service
  */
 @Service
@@ -56,13 +55,12 @@ public class BookingService {
     private final IdentityServiceClient identityServiceClient;
     private final SimpMessagingTemplate messagingTemplate;
     private final SepayService sepayService;
-    private final VtcpayService vtcpayService;
     private final PaymentService paymentService;
 
     /**
      * Create a new booking with circuit breaker protection.
      * Calls PricingEngine for dynamic pricing (rules + promo codes).
-     * Returns BookingResponse — includes checkoutUrl if paymentMethod=SEPAY or VTCPAY.
+     * Returns BookingResponse — includes checkoutUrl if paymentMethod=SEPAY.
      */
     @CircuitBreaker(name = "tourService", fallbackMethod = "createBookingFallback")
     @Retry(name = "tourService")
@@ -178,35 +176,6 @@ public class BookingService {
             }
         }
 
-        // Step 4b: If VTCPAY — build VTC Pay checkout URL for card payment
-        if ("VTCPAY".equalsIgnoreCase(paymentMethod)) {
-            try {
-                String referenceNumber = generateVtcpayRefNumber(savedBooking.getId());
-                String customerName = request.getContactName() != null ? request.getContactName() : "";
-                String customerPhone = request.getContactPhone() != null ? request.getContactPhone() : "";
-
-                String formHtml = vtcpayService.buildCheckoutFormHtml(
-                    referenceNumber, totalPrice, customerName, customerPhone, ""
-                );
-
-                paymentService.processVtcpayPayment(
-                    savedBooking.getId(), userId, totalPrice, formHtml, referenceNumber
-                );
-
-                // checkoutUrl contains HTML form (will be loaded by WebView)
-                response.setCheckoutUrl(formHtml);
-
-                log.info("VTC Pay checkout URL created for booking {}: ref={}", savedBooking.getId(), referenceNumber);
-            } catch (Exception e) {
-                log.error("Failed to create VTC Pay payment for booking {}: {}", savedBooking.getId(), e.getMessage());
-                savedBooking.setPaymentStatus("PAYMENT_LINK_FAILED");
-                savedBooking.setUpdatedAt(LocalDateTime.now());
-                bookingRepository.save(savedBooking);
-                response = BookingResponse.fromBooking(savedBooking);
-                if (tour != null) response.withTourInfo(tour);
-            }
-        }
-
         // WebSocket notification
         try {
             messagingTemplate.convertAndSend("/topic/notifications", 
@@ -236,60 +205,77 @@ public class BookingService {
     }
 
     /**
-     * Generate unique VTC Pay reference_number from bookingId.
-     * Format: "DL" + bookingId + timestamp suffix (max 30 chars)
-     */
-    private String generateVtcpayRefNumber(Long bookingId) {
-        return "DL" + bookingId + (System.currentTimeMillis() % 100000);
-    }
-
-    /**
      * Parse tour's itinerary JSONB template and create itinerary entries.
      *
-     * Expected JSONB format:
-     * {
-     *   "days": [
-     *     {
-     *       "day": 1,
-     *       "activities": ["Activity 1", "Activity 2"]
-     *     }
-     *   ]
-     * }
+     * Supports TWO formats:
+     *
+     * Format 1 (nested): {"days": [{"day": 1, "activities": ["Activity 1"]}]}
+     * Format 2 (flat map): {"Ngày 1": "line1\nline2", "Ngày 2": "..."}
      */
     @SuppressWarnings("unchecked")
     private void createItineraryFromTemplate(Long bookingId, TourResponse tour) {
         Map<String, Object> itineraryTemplate = tour.getItinerary();
-        if (itineraryTemplate == null || !itineraryTemplate.containsKey("days")) {
+        if (itineraryTemplate == null || itineraryTemplate.isEmpty()) {
             log.info("Tour {} has no itinerary template, skipping auto-creation", tour.getId());
             return;
         }
 
-        List<Map<String, Object>> days = (List<Map<String, Object>>) itineraryTemplate.get("days");
         List<ItineraryRequest> itineraryItems = new ArrayList<>();
+        String[] defaultTimes = {"07:30", "10:00", "12:00", "14:00", "16:00", "18:30", "20:00"};
 
-        for (Map<String, Object> day : days) {
-            Integer dayNumber = ((Number) day.get("day")).intValue();
-            List<String> activities = (List<String>) day.get("activities");
+        if (itineraryTemplate.containsKey("days")) {
+            // Format 1: nested {days: [{day: 1, activities: [...]}]}
+            List<Map<String, Object>> days = (List<Map<String, Object>>) itineraryTemplate.get("days");
+            for (Map<String, Object> day : days) {
+                Integer dayNumber = ((Number) day.get("day")).intValue();
+                List<String> activities = (List<String>) day.get("activities");
+                if (activities == null) continue;
 
-            if (activities == null) continue;
+                for (int i = 0; i < activities.size(); i++) {
+                    String startTime = i < defaultTimes.length ? defaultTimes[i] : null;
+                    itineraryItems.add(ItineraryRequest.builder()
+                        .bookingId(bookingId).dayNumber(dayNumber)
+                        .activityTitle(activities.get(i))
+                        .startTime(startTime).status("PLANNED").build());
+                }
+            }
+        } else {
+            // Format 2: flat map {"Ngày 1": "line1\nline2", "Ngày 2": "..."}
+            int dayCounter = 1;
+            for (Map.Entry<String, Object> entry : itineraryTemplate.entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
 
-            // Estimate start times: first activity at 07:30, then every 2-3 hours
-            String[] defaultTimes = {"07:30", "10:00", "12:00", "14:00", "16:00", "18:30", "20:00"};
+                // Extract day number from key like "Ngày 1", "Day 2", etc.
+                int dayNumber = dayCounter++;
+                try {
+                    String digits = key.replaceAll("[^0-9]", "");
+                    if (!digits.isEmpty()) dayNumber = Integer.parseInt(digits);
+                } catch (NumberFormatException ignored) {}
 
-            for (int i = 0; i < activities.size(); i++) {
-                String startTime = i < defaultTimes.length ? defaultTimes[i] : null;
+                // Parse activities from value
+                List<String> activities = new ArrayList<>();
+                if (value instanceof String) {
+                    String[] lines = ((String) value).split("\\n");
+                    for (String line : lines) {
+                        String trimmed = line.trim();
+                        if (!trimmed.isEmpty()) activities.add(trimmed);
+                    }
+                } else if (value instanceof List) {
+                    for (Object item : (List<?>) value) {
+                        activities.add(String.valueOf(item));
+                    }
+                } else {
+                    activities.add(String.valueOf(value));
+                }
 
-                ItineraryRequest item = ItineraryRequest.builder()
-                    .bookingId(bookingId)
-                    .dayNumber(dayNumber)
-                    .activityTitle(activities.get(i))
-                    .description(null)
-                    .startTime(startTime)
-                    .location(null)
-                    .status("PLANNED")
-                    .build();
-
-                itineraryItems.add(item);
+                for (int i = 0; i < activities.size(); i++) {
+                    String startTime = i < defaultTimes.length ? defaultTimes[i] : null;
+                    itineraryItems.add(ItineraryRequest.builder()
+                        .bookingId(bookingId).dayNumber(dayNumber)
+                        .activityTitle(activities.get(i))
+                        .startTime(startTime).status("PLANNED").build());
+                }
             }
         }
 
@@ -588,5 +574,13 @@ public class BookingService {
             "pendingExpenses", pendingExpenses,
             "pendingCount", pendingCount
         );
+    }
+
+    public boolean hasCompletedBooking(Long userId, Long tourId) {
+        return bookingRepository.existsByUserIdAndTourIdAndStatus(userId, tourId, "COMPLETED");
+    }
+
+    public long countCompletedBookings(Long userId, Long tourId) {
+        return bookingRepository.countByUserIdAndTourIdAndStatus(userId, tourId, "COMPLETED");
     }
 }

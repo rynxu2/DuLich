@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1036885521843",
+    "project_id": "dulich-f02bf",
+    "storage_bucket": "dulich-f02bf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1036885521843:android:627ca94ee2deecfdf687c6",
+        "android_client_info": {
+          "package_name": "com.dulichapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCyLqR5dPSXEmDsOldSfMIN-PspV0DguxA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

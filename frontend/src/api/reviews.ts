@@ -50,6 +50,12 @@ export const reviewsApi = {
   delete: (id: number) =>
     apiClient.delete(`/reviews/${id}`),
 
+  /** Check if current user can review a tour (completedBookings > existingReviews) */
+  canReview: (tourId: number) =>
+    apiClient.get<{ canReview: boolean; completedCount: number; reviewCount: number }>(
+      '/reviews/can-review', { params: { tourId } }
+    ),
+
   // ── Legacy compatibility ──
   getMyReviews: () =>
     apiClient.get<Review[]>('/reviews/me'),

@@ -45,3 +45,7 @@ minio:
   access-key: ${MINIO_ACCESS_KEY:dulich}
   secret-key: ${MINIO_SECRET_KEY:dulich_secret}
   bucket-name: ${MINIO_BUCKET_NAME:dulich-files}
+
+# Firebase Cloud Messaging
+firebase:
+  service-account: firebase-service-account.json

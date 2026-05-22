@@ -32,6 +32,8 @@ export function useCreateReview() {
       queryClient.invalidateQueries({ queryKey: ['reviews', 'user'] });
       // Invalidate tour details to update rating average
       queryClient.invalidateQueries({ queryKey: ['tour', variables.tourId] });
+      // Invalidate can-review check (completedBookings > existingReviews)
+      queryClient.invalidateQueries({ queryKey: ['can-review', variables.tourId] });
     },
   });
 }

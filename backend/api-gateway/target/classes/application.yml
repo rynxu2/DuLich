@@ -96,27 +96,6 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>.*), /${segment}
 
-        - id: vtcpay-ipn
-          uri: lb://booking-service
-          predicates:
-            - Path=/api/payments/vtcpay/ipn
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
-
-        - id: vtcpay-return
-          uri: lb://booking-service
-          predicates:
-            - Path=/api/payments/vtcpay/return
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
-
-        - id: vtcpay-simulate
-          uri: lb://booking-service
-          predicates:
-            - Path=/api/payments/vtcpay/simulate
-          filters:
-            - RewritePath=/api/(?<segment>.*), /${segment}
-
         - id: booking-payments
           uri: lb://booking-service
           predicates:

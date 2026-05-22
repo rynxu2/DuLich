@@ -169,7 +169,7 @@ export default function MyTripsScreen({ navigation }: Props) {
               </TouchableOpacity>
             )}
             {isCompleted && (
-              <TouchableOpacity style={styles.btnPrimary} onPress={() => Alert.alert('Đánh Giá', `Vui lòng vào chi tiết tour để viết đánh giá cho "${tourName}".`)}>
+              <TouchableOpacity style={styles.btnPrimary} onPress={() => navigation.navigate('Review', { tourId: item.tourId, tourTitle: tourName })}>
                 <Text style={styles.btnPrimaryText}>Đánh giá</Text>
               </TouchableOpacity>
             )}

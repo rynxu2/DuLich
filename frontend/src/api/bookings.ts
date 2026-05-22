@@ -105,4 +105,10 @@ export const bookingsApi = {
   /** Cancel booking */
   cancel: (id: number) =>
     apiClient.put<Booking>(`/bookings/${id}/cancel`),
+
+  /** Check if user has completed a booking for a specific tour */
+  checkCompleted: (userId: number, tourId: number) =>
+    apiClient.get<{ completed: boolean }>('/bookings/check-completed', {
+      params: { userId, tourId },
+    }),
 };

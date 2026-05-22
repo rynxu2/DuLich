@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, AuthResponse, LoginData, RegisterData } from '../api/auth';
 import { usersApi, UserProfile, UpdateProfileData } from '../api/users';
+import { pushService } from '../services/pushNotification';
 
 interface AuthState {
   isLoading: boolean;
@@ -62,6 +63,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       };
       set({ isLoading: false, isAuthenticated: true, token: response.accessToken, user: fallbackUser });
     }
+
+    // Register FCM push token after successful auth
+    pushService.initialize().catch(e =>
+      console.warn('Push notification setup failed:', e)
+    );
   },
 
   login: async (data: LoginData) => {
@@ -75,6 +81,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async () => {
+    // Unregister FCM token before clearing auth
+    await pushService.unregisterToken();
+
     await AsyncStorage.removeItem('auth_token');
     await AsyncStorage.removeItem('refresh_token');
     await AsyncStorage.removeItem('user_data');

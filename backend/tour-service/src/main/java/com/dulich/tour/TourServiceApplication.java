@@ -3,6 +3,7 @@ package com.dulich.tour;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 
 /**
  * Tour Service — Manage travel tours
@@ -12,6 +13,7 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+@EnableFeignClients(basePackages = "com.dulich.tour.client")
 public class TourServiceApplication {
     public static void main(String[] args) {
         SpringApplication.run(TourServiceApplication.class, args);

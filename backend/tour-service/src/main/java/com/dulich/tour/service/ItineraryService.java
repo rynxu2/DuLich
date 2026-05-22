@@ -33,6 +33,8 @@ public class ItineraryService {
         if (details.getDescription() != null) it.setDescription(details.getDescription());
         if (details.getStartTime() != null) it.setStartTime(details.getStartTime());
         if (details.getLocation() != null) it.setLocation(details.getLocation());
+        if (details.getStatus() != null) it.setStatus(details.getStatus());
+        if (details.getNotes() != null) it.setNotes(details.getNotes());
         return itineraryRepository.save(it);
     }
 }

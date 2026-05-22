@@ -1,7 +1,6 @@
 # ===========================================================
 # Docker Compose — Travel Booking Platform (CONSOLIDATED)
 # ===========================================================
-# OPTIMIZED for 8GB RAM Local Development
 #
 # Architecture: 4 Business Services + 2 Infra + 4 Infrastructure
 #
@@ -274,9 +273,6 @@ services:
       SEPAY_API_KEY: ${SEPAY_API_KEY}
       SEPAY_BANK_CODE: ${SEPAY_BANK_CODE}
       SEPAY_ACCOUNT_NUMBER: ${SEPAY_ACCOUNT_NUMBER}
-      VTCPAY_WEBSITE_ID: ${VTCPAY_WEBSITE_ID}
-      VTCPAY_SECURITY_CODE: ${VTCPAY_SECURITY_CODE}
-      VTCPAY_RECEIVER_ACCOUNT: ${VTCPAY_RECEIVER_ACCOUNT}
     deploy:
       resources:
         limits:
@@ -294,7 +290,7 @@ services:
   platform-service:
     build: ./platform-service
     container_name: platform-service
-    profiles: ["advanced"]
+    profiles: ["core"]
     <<: *java-service
     ports:
       - "8084:8084"

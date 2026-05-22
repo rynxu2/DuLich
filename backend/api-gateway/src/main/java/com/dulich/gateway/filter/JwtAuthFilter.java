@@ -47,9 +47,6 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         "/api/notifications/health",
         "/api/payments/sepay/webhook",
         "/api/payments/sepay/simulate",
-        "/api/payments/vtcpay/ipn",
-        "/api/payments/vtcpay/return",
-        "/api/payments/vtcpay/simulate",
         "/eureka"
     );
 

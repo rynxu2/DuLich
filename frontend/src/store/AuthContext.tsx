@@ -13,6 +13,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authApi, AuthResponse, LoginData, RegisterData } from '../api/auth';
 import { usersApi, UserProfile, UpdateProfileData } from '../api/users';
+import { pushService } from '../services/pushNotification';
 
 interface AuthState {
   isLoading: boolean;
@@ -100,6 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token: response.accessToken,
         user,
       });
+
+      // Register FCM push token after successful auth
+      pushService.initialize().catch(e =>
+        console.warn('Push notification setup failed:', e)
+      );
     } catch {
       // Use basic info from auth response if profile fetch fails
       // (profile may not exist yet if user.registered event hasn't been processed)
@@ -132,6 +138,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Unregister FCM token before clearing auth
+    await pushService.unregisterToken();
+
     await AsyncStorage.removeItem('auth_token');
     await AsyncStorage.removeItem('refresh_token');
     await AsyncStorage.removeItem('user_data');

@@ -11,7 +11,7 @@
  */
 import apiClient from './client';
 
-export type PaymentMethod = 'CASH' | 'SEPAY' | 'VTCPAY';
+export type PaymentMethod = 'CASH' | 'SEPAY';
 export type PaymentStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILED' | 'REFUNDED';
 
 export interface Payment {
@@ -53,8 +53,4 @@ export const paymentsApi = {
   /** Simulate SePay payment (dev/demo only) */
   simulatePayment: (bookingId: number) =>
     apiClient.post('/payments/sepay/simulate', { bookingId }),
-
-  /** Simulate VTC Pay card payment (dev/demo only) */
-  simulateVtcpayPayment: (bookingId: number) =>
-    apiClient.post('/payments/vtcpay/simulate', { bookingId }),
 };
