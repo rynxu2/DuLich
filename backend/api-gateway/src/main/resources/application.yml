@@ -154,6 +154,37 @@ spring:
           filters:
             - RewritePath=/api/(?<segment>.*), /${segment}
 
+        # ═══════════════════════════════════════════════════════
+        #  SWAGGER / OPENAPI DOCS (aggregated from each service)
+        # ═══════════════════════════════════════════════════════
+        - id: identity-api-docs
+          uri: lb://identity-service
+          predicates:
+            - Path=/v3/api-docs/identity
+          filters:
+            - RewritePath=/v3/api-docs/identity, /v3/api-docs
+
+        - id: tour-api-docs
+          uri: lb://tour-service
+          predicates:
+            - Path=/v3/api-docs/tour
+          filters:
+            - RewritePath=/v3/api-docs/tour, /v3/api-docs
+
+        - id: booking-api-docs
+          uri: lb://booking-service
+          predicates:
+            - Path=/v3/api-docs/booking
+          filters:
+            - RewritePath=/v3/api-docs/booking, /v3/api-docs
+
+        - id: platform-api-docs
+          uri: lb://platform-service
+          predicates:
+            - Path=/v3/api-docs/platform
+          filters:
+            - RewritePath=/v3/api-docs/platform, /v3/api-docs
+
       # Global CORS
       globalcors:
         cors-configurations:
@@ -178,3 +209,19 @@ jwt:
 logging:
   level:
     org.springframework.cloud.gateway: DEBUG
+
+# SpringDoc OpenAPI — Aggregated Swagger UI
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    urls:
+      - name: identity-service
+        url: /v3/api-docs/identity
+      - name: tour-service
+        url: /v3/api-docs/tour
+      - name: booking-service
+        url: /v3/api-docs/booking
+      - name: platform-service
+        url: /v3/api-docs/platform
+  api-docs:
+    path: /v3/api-docs

@@ -75,3 +75,11 @@ sepay:
   cancel-url: ${SEPAY_CANCEL_URL:dulich://payment/cancel}
   qr-base-url: ${SEPAY_QR_BASE_URL:https://qr.sepay.vn/img}
 
+# SpringDoc OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+

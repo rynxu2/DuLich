@@ -47,7 +47,11 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         "/api/notifications/health",
         "/api/payments/sepay/webhook",
         "/api/payments/sepay/simulate",
-        "/eureka"
+        "/eureka",
+        // Swagger / OpenAPI docs
+        "/swagger-ui",
+        "/v3/api-docs",
+        "/webjars/"
     );
 
     @Override

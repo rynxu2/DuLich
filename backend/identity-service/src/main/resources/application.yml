@@ -36,3 +36,11 @@ jwt:
   secret: "dG91ci1ib29raW5nLXBsYXRmb3JtLXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5n"
   access-token-expiration: 86400000   # 24 hours
   refresh-token-expiration: 604800000  # 7 days
+
+# SpringDoc OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
