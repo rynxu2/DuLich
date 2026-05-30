@@ -5,6 +5,7 @@ import com.dulich.tour.repository.DepartureRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,7 +33,9 @@ public class CapacityService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String LOCK_PREFIX = "seat_lock:";
+    private static final String CONFIRMED_PREFIX = "confirmed:";
     private static final Duration LOCK_TTL = Duration.ofMinutes(10);
+    private static final Duration CONFIRMED_TTL = Duration.ofHours(24);
 
     /**
      * Phase 1: Temporarily reserve seats (Redis lock + availability check).
@@ -43,6 +46,10 @@ public class CapacityService {
      * @return true if reservation successful
      */
     public boolean reserveSeats(Long departureId, Long bookingId, int seatCount) {
+        if (seatCount <= 0) {
+            throw new IllegalArgumentException("Seat count must be positive: " + seatCount);
+        }
+
         TourDeparture departure = departureRepository.findById(departureId)
                 .orElseThrow(() -> new RuntimeException("Departure not found: " + departureId));
 
@@ -76,35 +83,67 @@ public class CapacityService {
      * @return true if DB decrement was successful
      */
     @Transactional
+    @CacheEvict(value = {"tour-detail", "tours", "tour-search"}, allEntries = true)
     public boolean confirmSeats(Long departureId, Long bookingId, int seatCount) {
+        if (seatCount <= 0) {
+            throw new IllegalArgumentException("Seat count must be positive: " + seatCount);
+        }
+
         int updated = departureRepository.decrementSlots(departureId, seatCount);
 
-        // Remove the Redis lock
-        String lockKey = LOCK_PREFIX + departureId + ":" + bookingId;
-        redisTemplate.delete(lockKey);
-
         if (updated > 0) {
+            // Only delete lock and set confirmed flag AFTER successful DB decrement
+            String lockKey = LOCK_PREFIX + departureId + ":" + bookingId;
+            redisTemplate.delete(lockKey);
+
+            String confirmedKey = CONFIRMED_PREFIX + departureId + ":" + bookingId;
+            redisTemplate.opsForValue().set(confirmedKey, String.valueOf(seatCount), CONFIRMED_TTL);
+
             log.info("Seats confirmed (DB decremented): departureId={}, bookingId={}, seats={}",
                     departureId, bookingId, seatCount);
             return true;
         }
 
+        // Lock stays — caller should handle failure
         log.error("Failed to confirm seats (DB decrement failed): departureId={}, bookingId={}",
                 departureId, bookingId);
         return false;
     }
 
     /**
-     * Release seats (on payment failure or timeout).
+     * Release seats (on cancellation or payment failure).
+     * Removes Redis lock AND increments DB slots only if seats were previously confirmed.
      */
     @Transactional
+    @CacheEvict(value = {"tour-detail", "tours", "tour-search"}, allEntries = true)
     public void releaseSeats(Long departureId, Long bookingId, int seatCount) {
-        // Remove Redis lock
+        if (seatCount <= 0) {
+            throw new IllegalArgumentException("Seat count must be positive: " + seatCount);
+        }
+
+        // Remove Redis lock (for pre-confirm cancellations)
         String lockKey = LOCK_PREFIX + departureId + ":" + bookingId;
         redisTemplate.delete(lockKey);
 
-        log.info("Seats released: departureId={}, bookingId={}, seats={}",
-                departureId, bookingId, seatCount);
+        // Only increment DB if seats were actually confirmed (decremented)
+        String confirmedKey = CONFIRMED_PREFIX + departureId + ":" + bookingId;
+        String confirmedValue = redisTemplate.opsForValue().get(confirmedKey);
+
+        if (confirmedValue != null) {
+            int updated = departureRepository.incrementSlots(departureId, seatCount);
+            if (updated > 0) {
+                log.info("Seats released (DB incremented): departureId={}, bookingId={}, seats={}",
+                        departureId, bookingId, seatCount);
+            } else {
+                log.warn("Failed to increment slots on release: departureId={}, bookingId={}",
+                        departureId, bookingId);
+            }
+            // Clean up the confirmation tracking key
+            redisTemplate.delete(confirmedKey);
+        } else {
+            log.info("Seats released (lock only, no DB change): departureId={}, bookingId={}",
+                    departureId, bookingId);
+        }
     }
 
     /**

@@ -16,7 +16,7 @@ public class PromoCode {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rule_id")
     private PricingRule rule;
 

@@ -1,5 +1,6 @@
 package com.dulich.identity.service;
 
+import com.dulich.identity.dto.ProfileResponse;
 import com.dulich.identity.entity.User;
 import com.dulich.identity.entity.UserProfile;
 import com.dulich.identity.repository.UserProfileRepository;
@@ -19,13 +20,16 @@ public class ProfileService {
     private final UserProfileRepository profileRepository;
     private final UserRepository userRepository;
 
-    public UserProfile getProfile(Long userId) {
-        return profileRepository.findByUserId(userId)
+    public ProfileResponse getProfile(Long userId) {
+        UserProfile profile = profileRepository.findByUserId(userId)
             .orElseThrow(() -> new RuntimeException("Profile not found for userId: " + userId));
+        String email = userRepository.findById(userId)
+            .map(User::getEmail).orElse(null);
+        return toProfileResponse(profile, email);
     }
 
     @Transactional
-    public UserProfile updateProfile(Long userId, UserProfile updates) {
+    public ProfileResponse updateProfile(Long userId, UserProfile updates) {
         // 1. Update Profile
         UserProfile profile = profileRepository.findByUserId(userId)
             .orElseGet(() -> UserProfile.builder().userId(userId).build());
@@ -40,18 +44,36 @@ public class ProfileService {
         profile = profileRepository.save(profile);
 
         // 2. Sync core fields to User entity
-        userRepository.findById(userId).ifPresent(user -> {
+        String email = null;
+        User user = userRepository.findById(userId).orElse(null);
+        if (user != null) {
             boolean changed = false;
             if (updates.getFullName() != null) { user.setFullName(updates.getFullName()); changed = true; }
             if (updates.getPhone() != null) { user.setPhone(updates.getPhone()); changed = true; }
             if (updates.getAvatarUrl() != null) { user.setAvatarUrl(updates.getAvatarUrl()); changed = true; }
-            
             if (changed) {
                 user.setUpdatedAt(LocalDateTime.now());
                 userRepository.save(user);
             }
-        });
+            email = user.getEmail();
+        }
 
-        return profile;
+        return toProfileResponse(profile, email);
+    }
+
+    private ProfileResponse toProfileResponse(UserProfile profile, String email) {
+        return ProfileResponse.builder()
+            .id(profile.getId())
+            .userId(profile.getUserId())
+            .email(email)
+            .fullName(profile.getFullName())
+            .phone(profile.getPhone())
+            .avatarUrl(profile.getAvatarUrl())
+            .dateOfBirth(profile.getDateOfBirth())
+            .address(profile.getAddress())
+            .bio(profile.getBio())
+            .createdAt(profile.getCreatedAt())
+            .updatedAt(profile.getUpdatedAt())
+            .build();
     }
 }

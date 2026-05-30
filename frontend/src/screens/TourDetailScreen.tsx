@@ -38,6 +38,7 @@ export default function TourDetailScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [selectedDeparture, setSelectedDeparture] = useState<TourDeparture | null>(null);
+  const [slotsMap, setSlotsMap] = useState<Record<number, number>>({});
 
   // Image slider state
   const [activeSlide, setActiveSlide] = useState(0);
@@ -59,12 +60,12 @@ export default function TourDetailScreen({ navigation, route }: Props) {
 
   // Check if current user can review (completedBookings > existingReviews)
   const { data: canReviewCheck } = useQuery({
-    queryKey: ['can-review', tourId, user?.id],
+    queryKey: ['can-review', tourId, user?.userId],
     queryFn: async () => {
       const res = await reviewsApi.canReview(tourId);
       return res.data;
     },
-    enabled: !!user?.id && !!tourId,
+    enabled: !!user?.userId && !!tourId,
   });
   const canReview = canReviewCheck?.canReview === true;
 
@@ -79,6 +80,16 @@ export default function TourDetailScreen({ navigation, route }: Props) {
       if (firstAvailable) setSelectedDeparture(firstAvailable);
     }
   }, [tour, selectedDeparture]);
+
+  // Persist real-time availability into slotsMap so it survives departure switches
+  useEffect(() => {
+    if (realTimeAvail && selectedDeparture?.id != null) {
+      setSlotsMap(prev => ({
+        ...prev,
+        [selectedDeparture.id]: realTimeAvail.availableSlots,
+      }));
+    }
+  }, [realTimeAvail, selectedDeparture]);
 
   // Build images
   const sliderImages = useCallback((): { uri: string }[] => {
@@ -297,45 +308,37 @@ export default function TourDetailScreen({ navigation, route }: Props) {
           {tour.departures && tour.departures.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Chuyến Khởi Hành</Text>
-              <View style={styles.departuresContainer}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.depScroll}>
                 {tour.departures.map(dep => {
-                  let slots = dep.availableSlots;
-                  let total = tour.maxParticipants;
-                  if (selectedDeparture?.id === dep.id && realTimeAvail) {
-                    slots = realTimeAvail.availableSlots;
-                    total = realTimeAvail.totalSlots;
-                  }
+                  // Use cached real-time value if available, fallback to initial data
+                  const slots = slotsMap[dep.id] !== undefined ? slotsMap[dep.id] : dep.availableSlots;
                   const isSelected = selectedDeparture?.id === dep.id;
                   const isFull = slots <= 0;
                   const today = new Date(); today.setHours(0, 0, 0, 0);
                   const depDate = new Date(dep.departureDate); depDate.setHours(0, 0, 0, 0);
                   const isPast = depDate < today;
                   const isDisabled = isFull || isPast;
+                  const dateObj = new Date(dep.departureDate);
+                  const dayNum = dateObj.getDate();
+                  const monthNum = dateObj.getMonth() + 1;
+
                   return (
                     <TouchableOpacity
-                      key={dep.id} disabled={isDisabled} onPress={() => setSelectedDeparture(dep)} activeOpacity={0.8}
-                      style={[styles.depBox, isSelected && styles.depBoxSelected, isDisabled && styles.depBoxFull, isPast && styles.depBoxExpired]}
+                      key={dep.id} disabled={isDisabled}
+                      onPress={() => setSelectedDeparture(dep)} activeOpacity={0.7}
+                      style={[styles.depChip, isSelected && styles.depChipSelected, isDisabled && styles.depChipDisabled]}
                     >
-                      {isSelected && <View style={styles.depSelectedRibbon}><Icon name="check" size={12} color="#fff" /></View>}
-                      {isPast && (
-                        <View style={styles.depExpiredBadge}>
-                          <Text style={styles.depExpiredBadgeText}>Đã qua</Text>
-                        </View>
-                      )}
-                      <Text style={[styles.depDate, isSelected && styles.depTextSelected, isPast && styles.depTextExpired]}>
-                        {new Date(dep.departureDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                      <Text style={[styles.depChipDate, isSelected && styles.depChipDateSelected, isPast && styles.depChipDatePast]}>
+                        {dayNum}/{monthNum < 10 ? '0' + monthNum : monthNum}
                       </Text>
-                      <Text style={[styles.depYear, isSelected && styles.depTextSelected, isPast && styles.depTextExpired]}>
-                        {new Date(dep.departureDate).getFullYear()}
+                      <Text style={[styles.depChipSlot, isSelected && styles.depChipSlotSelected, isPast && { color: theme.colors.textLight }]}>
+                        {isPast ? 'Đã qua' : isFull ? 'Hết chỗ' : `Còn ${slots}`}
                       </Text>
-                      <View style={styles.depDivider} />
-                      <Text style={[styles.depSlots, isPast ? styles.depTextExpired : isFull ? { color: theme.colors.error } : isSelected ? styles.depTextSelected : {}]}>
-                        {isPast ? 'Hết hạn' : isFull ? 'Hết chỗ' : `Còn ${slots}`}
-                      </Text>
+                      {isSelected && <View style={styles.depChipCheck}><Icon name="check" size={10} color="#fff" /></View>}
                     </TouchableOpacity>
                   );
                 })}
-              </View>
+              </ScrollView>
             </View>
           )}
 
@@ -444,20 +447,26 @@ const styles = StyleSheet.create({
   timelineActivities: { backgroundColor: theme.colors.surfaceVariant, padding: 12, borderRadius: 12 },
   timelineActText: { fontSize: 14, color: theme.colors.textSecondary, lineHeight: 22, marginBottom: 6 },
 
-  departuresContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  depBox: { width: (width - 64) / 3, backgroundColor: '#fff', borderWidth: 1.5, borderColor: theme.colors.border, borderRadius: 16, paddingVertical: 12, alignItems: 'center', overflow: 'hidden' },
-  depBoxSelected: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primary },
-  depBoxFull: { opacity: 0.5, backgroundColor: '#F3F4F6' },
-  depSelectedRibbon: { position: 'absolute', top: 0, left: 0, backgroundColor: '#fff', paddingHorizontal: 6, paddingVertical: 2, borderBottomRightRadius: 8 },
-  depDate: { fontSize: 18, fontWeight: '800', color: theme.colors.text, marginBottom: 2 },
-  depYear: { fontSize: 12, color: theme.colors.textSecondary },
-  depDivider: { width: '40%', height: 1, backgroundColor: theme.colors.border, marginVertical: 8 },
-  depSlots: { fontSize: 12, fontWeight: '600', color: theme.colors.primary },
-  depTextSelected: { color: '#fff' },
-  depBoxExpired: { opacity: 0.45, backgroundColor: '#F9FAFB', borderStyle: 'dashed' },
-  depExpiredBadge: { position: 'absolute', top: 0, right: 0, backgroundColor: theme.colors.textLight, paddingHorizontal: 6, paddingVertical: 2, borderBottomLeftRadius: 8 },
-  depExpiredBadgeText: { fontSize: 9, fontWeight: '700', color: '#fff', textTransform: 'uppercase' },
-  depTextExpired: { color: theme.colors.textLight, textDecorationLine: 'line-through' },
+  depScroll: { gap: 8, paddingRight: 20 },
+  depChip: {
+    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12,
+    backgroundColor: '#fff', borderWidth: 1.5, borderColor: theme.colors.border,
+    alignItems: 'center', minWidth: 80,
+  },
+  depChipSelected: { borderColor: theme.colors.primary, backgroundColor: theme.colors.primaryMuted },
+  depChipDisabled: { opacity: 0.45 },
+  depChipDate: { fontSize: 15, fontWeight: '700', color: theme.colors.text, marginBottom: 2 },
+  depChipDateSelected: { color: theme.colors.primary },
+  depChipDatePast: { color: theme.colors.textLight, textDecorationLine: 'line-through' },
+  depChipSlot: { fontSize: 11, fontWeight: '500', color: theme.colors.textSecondary },
+  depChipSlotSelected: { color: theme.colors.primary, fontWeight: '600' },
+  depChipCheck: {
+    position: 'absolute', top: -4, right: -4,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#fff',
+  },
 
   emptyReviews: { padding: 20, alignItems: 'center', backgroundColor: theme.colors.surfaceVariant, borderRadius: 14 },
   emptyReviewsText: { color: theme.colors.textSecondary, fontStyle: 'italic' },

@@ -6,6 +6,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
   TextInput as RNTextInput, Share, Alert, ImageBackground, Dimensions
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -44,6 +45,7 @@ export default function ItineraryScreen({ navigation, route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
+  const notesKey = `itinerary_notes_${bookingId}`;
   
   const [guideProfile, setGuideProfile] = useState<UserProfile | null>(null);
 
@@ -127,6 +129,21 @@ export default function ItineraryScreen({ navigation, route }: Props) {
     };
     fetchData();
   }, [bookingId]);
+
+  // Load persisted notes from AsyncStorage
+  useEffect(() => {
+    AsyncStorage.getItem(notesKey).then(saved => {
+      if (saved) {
+        try { setNotes(JSON.parse(saved)); } catch {}
+      }
+    });
+  }, [notesKey]);
+
+  // Save notes to AsyncStorage when editing finishes
+  const handleFinishEditingNote = () => {
+    setEditingNoteId(null);
+    AsyncStorage.setItem(notesKey, JSON.stringify(notes)).catch(() => {});
+  };
 
   const handleStatusChange = async (itemId: number, newStatus: string) => {
     const item = items.find(i => i.id === itemId);
@@ -392,7 +409,7 @@ export default function ItineraryScreen({ navigation, route }: Props) {
                                      placeholderTextColor={theme.colors.textLight}
                                      autoFocus
                                    />
-                                   <TouchableOpacity onPress={() => setEditingNoteId(null)} style={styles.noteSaveBtn}>
+                                   <TouchableOpacity onPress={handleFinishEditingNote} style={styles.noteSaveBtn}>
                                      <Text style={styles.noteSaveBtnText}>Xong</Text>
                                    </TouchableOpacity>
                                  </View>

@@ -92,7 +92,7 @@ public class PricingEngine {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal finalPrice = subtotal.add(totalAdjustment).max(BigDecimal.ZERO);
-        BigDecimal originalTotal = basePrice.multiply(BigDecimal.valueOf(totalPeople));
+        BigDecimal originalTotal = subtotal; // subtotal already = adultPrice*adults + childPrice*children
         BigDecimal savings = originalTotal.subtract(finalPrice).max(BigDecimal.ZERO);
 
         return PricePreviewResponse.builder()
@@ -107,6 +107,7 @@ public class PricingEngine {
             .totalDiscount(totalAdjustment.abs())
             .finalPrice(finalPrice)
             .savings(savings)
+            .totalParticipants(request.getAdults() + request.getChildren())
             .build();
     }
 
@@ -244,16 +245,20 @@ public class PricingEngine {
         var opt = promoCodeRepository.findByCode(code.toUpperCase());
         if (opt.isEmpty()) return false;
         var promo = opt.get();
-        if (promo.getCurrentUses() >= promo.getMaxUses()) return false;
         if (userId != null && promoUsageRepository.existsByUserIdAndPromoCode(userId, code.toUpperCase())) return false;
-        promo.setCurrentUses(promo.getCurrentUses() + 1);
-        promoCodeRepository.save(promo);
+
+        // Atomic increment: returns 0 if currentUses >= maxUses (no TOCTOU race)
+        int updated = promoCodeRepository.incrementUsageAtomically(promo.getId());
+        if (updated == 0) {
+            log.warn("Promo {} exhausted (atomic check failed), userId={}", code, userId);
+            return false;
+        }
+
         if (userId != null) {
             promoUsageRepository.save(PromoUsage.builder()
                 .userId(userId).promoCode(code.toUpperCase()).bookingId(bookingId).build());
         }
-        log.info("Promo {} consumed by userId={}, bookingId={}, currentUses={}/{}",
-            code, userId, bookingId, promo.getCurrentUses(), promo.getMaxUses());
+        log.info("Promo {} consumed by userId={}, bookingId={}", code, userId, bookingId);
         return true;
     }
 }

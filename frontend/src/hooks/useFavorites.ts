@@ -17,10 +17,11 @@ export function useFavorites() {
       const favItems = favRes.data;
       if (favItems.length === 0) return [];
 
-      // Fetch corresponding tours
-      const toursRes = await toursApi.list();
-      const favTourIds = new Set(favItems.map(f => f.tourId));
-      return toursRes.data.filter(t => favTourIds.has(t.id));
+      // Fetch only the tours that are favorited (not ALL tours)
+      const tours = await Promise.all(
+        favItems.map(f => toursApi.getById(f.tourId).then(r => r.data).catch(() => null))
+      );
+      return tours.filter((t): t is Tour => t !== null);
     },
     enabled: !!userId,
   });

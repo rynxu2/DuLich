@@ -63,6 +63,8 @@ export interface CreateBookingData {
   departureId?: number;
   bookingDate: string;
   travelers: number;
+  adults?: number;             // Backend uses for PricingEngine calculation
+  children?: number;           // Backend uses for child discount pricing
   contactName?: string;
   contactPhone?: string;
   specialRequests?: string;

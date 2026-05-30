@@ -70,6 +70,7 @@ public class AuthService {
             .build();
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
             .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -84,6 +85,10 @@ public class AuthService {
 
         String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
         String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+
+        // Clean up old refresh tokens for this user before saving new one
+        refreshTokenRepository.deleteByUserId(user.getId());
+        refreshTokenRepository.flush();
         saveRefreshToken(user.getId(), refreshToken);
 
         return AuthResponse.builder()
@@ -112,8 +117,11 @@ public class AuthService {
         String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getRole());
         String newRefreshToken = jwtUtil.generateRefreshToken(user.getId());
 
-        // Rotate refresh token
-        refreshTokenRepository.delete(stored);
+        // Delete ALL old tokens for this user (cleanup) and flush to DB immediately
+        // to prevent unique constraint violation from Hibernate batching
+        refreshTokenRepository.deleteByUserId(user.getId());
+        refreshTokenRepository.flush();
+
         saveRefreshToken(user.getId(), newRefreshToken);
 
         return AuthResponse.builder()

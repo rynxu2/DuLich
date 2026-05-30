@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Feign Client — Inter-service communication with Tour Service
@@ -41,4 +42,22 @@ public interface TourServiceClient {
         @RequestParam("code") String code,
         @RequestParam("userId") Long userId,
         @RequestParam(value = "bookingId", required = false) Long bookingId);
+
+    @PostMapping("/tours/departures/{depId}/reserve")
+    Map<String, Object> reserveSeats(
+        @PathVariable("depId") Long depId,
+        @RequestParam("bookingId") Long bookingId,
+        @RequestParam(value = "seats", defaultValue = "1") int seats);
+
+    @PostMapping("/tours/departures/{depId}/release")
+    Map<String, Object> releaseSeats(
+        @PathVariable("depId") Long depId,
+        @RequestParam("bookingId") Long bookingId,
+        @RequestParam(value = "seats", defaultValue = "1") int seats);
+
+    @PostMapping("/tours/departures/{depId}/confirm")
+    Map<String, Object> confirmSeats(
+        @PathVariable("depId") Long depId,
+        @RequestParam("bookingId") Long bookingId,
+        @RequestParam(value = "seats", defaultValue = "1") int seats);
 }

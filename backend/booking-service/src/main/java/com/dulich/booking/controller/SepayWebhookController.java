@@ -1,14 +1,20 @@
 package com.dulich.booking.controller;
 
+import com.dulich.booking.config.RabbitMQConfig;
+import com.dulich.booking.entity.Booking;
 import com.dulich.booking.entity.Payment;
+import com.dulich.booking.event.PaymentFailedEvent;
+import com.dulich.booking.event.PaymentSuccessEvent;
 import com.dulich.booking.repository.BookingRepository;
 import com.dulich.booking.service.PaymentService;
 import com.dulich.booking.service.SepayService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -40,6 +46,7 @@ public class SepayWebhookController {
     private final SepayService sepayService;
     private final PaymentService paymentService;
     private final BookingRepository bookingRepository;
+    private final RabbitTemplate rabbitTemplate;
 
     /**
      * Receive webhook from SePay after bank transfer is detected.
@@ -93,15 +100,51 @@ public class SepayWebhookController {
 
             // Verify amount matches
             Number transferAmount = (Number) payload.get("transferAmount");
-            if (transferAmount != null && transferAmount.longValue() >= payment.getAmount().longValue()) {
+            BigDecimal expectedAmount = payment.getAmount();
+            if (transferAmount != null && new BigDecimal(transferAmount.toString()).compareTo(expectedAmount) >= 0) {
                 // Payment success
                 String providerData = payload.toString();
                 paymentService.updatePaymentStatus(payment.getId(), "SUCCESS", providerData);
                 updateBookingPaymentStatus(payment.getBookingId(), "PAID");
                 log.info("SePay payment SUCCESS: paymentId={}, bookingId={}", payment.getId(), payment.getBookingId());
+
+                // Publish payment.success event → triggers BookingEventHandler saga
+                Booking booking = bookingRepository.findById(payment.getBookingId()).orElse(null);
+                if (booking != null) {
+                    PaymentSuccessEvent successEvent = PaymentSuccessEvent.builder()
+                            .paymentId(payment.getId())
+                            .bookingId(booking.getId())
+                            .userId(booking.getUserId())
+                            .amount(payment.getAmount())
+                            .paymentMethod(payment.getPaymentMethod())
+                            .providerTransactionId(payment.getProviderTransactionId())
+                            .build();
+                    rabbitTemplate.convertAndSend(
+                            RabbitMQConfig.PAYMENT_EXCHANGE,
+                            RabbitMQConfig.PAYMENT_SUCCESS_KEY,
+                            successEvent
+                    );
+                    log.info("Published payment.success event for booking: {}", booking.getId());
+                }
             } else {
                 log.warn("SePay amount mismatch: expected={}, received={}",
-                        payment.getAmount(), transferAmount);
+                        expectedAmount, transferAmount);
+
+                // Publish payment.failed event → triggers compensation (cancel + release seats)
+                Booking booking = bookingRepository.findById(payment.getBookingId()).orElse(null);
+                if (booking != null) {
+                    PaymentFailedEvent failedEvent = PaymentFailedEvent.builder()
+                            .bookingId(booking.getId())
+                            .userId(booking.getUserId())
+                            .reason("Amount mismatch: expected " + expectedAmount + ", received " + transferAmount)
+                            .build();
+                    rabbitTemplate.convertAndSend(
+                            RabbitMQConfig.PAYMENT_EXCHANGE,
+                            RabbitMQConfig.PAYMENT_FAILED_KEY,
+                            failedEvent
+                    );
+                    log.info("Published payment.failed event for booking: {}", booking.getId());
+                }
                 return ResponseEntity.ok(Map.of("success", true, "reason", "Amount mismatch"));
             }
 

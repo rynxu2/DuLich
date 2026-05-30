@@ -16,9 +16,7 @@ if (typeof global.TextDecoder === 'undefined') {
   global.TextDecoder = TextDecoder;
 }
 
-const WS_BASE_URL = __DEV__
-  ? 'http://10.0.2.2:8080/ws'
-  : 'http://localhost:8080/ws';
+const WS_BASE_URL = 'https://7ffa-2405-4802-1f94-5c10-61bd-95b3-fcbf-a0cd.ngrok-free.app/ws';
 
 class WebSocketService {
   private client: Client | null = null;

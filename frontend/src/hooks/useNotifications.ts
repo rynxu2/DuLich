@@ -14,6 +14,7 @@ export function useNotifications() {
       return res.data;
     },
     enabled: !!userId,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }
 

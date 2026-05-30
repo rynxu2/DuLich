@@ -6,7 +6,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
   TouchableOpacity, ActivityIndicator, Image, ScrollView,
-  Dimensions, Platform, StatusBar, Animated,
+  Dimensions, Platform, StatusBar, Animated, Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -17,7 +17,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import TourCard from '../components/TourCard';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTours } from '../hooks/useTours';
+import { useFavorites, useToggleFavorite } from '../hooks/useFavorites';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { MainTabParamList } from '../navigation/MainTabs';
 import { theme } from '../theme';
 import { getMediaUrl } from '../utils/media';
 
@@ -76,8 +78,19 @@ export default function HomeScreen({ navigation }: Props) {
     category: selectedCategory !== 'all' ? selectedCategory : undefined,
   });
 
+  const { data: favorites = [] } = useFavorites();
+  const { mutate: toggleFavorite } = useToggleFavorite();
+
+  const handleToggleFavorite = (tourId: number) => {
+    toggleFavorite(tourId, {
+      onError: () => {
+        Alert.alert('Lỗi', 'Không thể cập nhật yêu thích. Vui lòng thử lại.');
+      }
+    });
+  };
+
   const featuredTours = useMemo(() => {
-    return [...tours].sort((a, b) => b.rating - a.rating).slice(0, 5);
+    return [...tours].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 5);
   }, [tours]);
 
   const getGreeting = () => {
@@ -256,7 +269,7 @@ export default function HomeScreen({ navigation }: Props) {
                   <View style={styles.featBottom}>
                     <View style={styles.featRatingRow}>
                       <Icon name="star" size={11} color={theme.colors.star} />
-                      <Text style={styles.featRating}>{t.rating.toFixed(1)}</Text>
+                      <Text style={styles.featRating}>{(t.rating || 0).toFixed(1)}</Text>
                     </View>
                     <Text style={styles.featPrice}>
                       {new Intl.NumberFormat('vi-VN').format(t.price)}đ
@@ -290,7 +303,12 @@ export default function HomeScreen({ navigation }: Props) {
           ListHeaderComponent={renderHeader}
           renderItem={({ item }) => (
             <View style={{ paddingHorizontal: 20 }}>
-              <TourCard tour={item} onPress={() => navigation.navigate('TourDetail', { tourId: item.id })} />
+              <TourCard
+                tour={item}
+                onPress={() => navigation.navigate('TourDetail', { tourId: item.id })}
+                isFavorite={favorites.some(fav => fav.id === item.id)}
+                onFavoritePress={() => handleToggleFavorite(item.id)}
+              />
             </View>
           )}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={theme.colors.primary} />}

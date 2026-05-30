@@ -28,6 +28,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const handleRegister = async () => {
@@ -71,15 +72,18 @@ export default function RegisterScreen({ navigation }: Props) {
         placeholderTextColor={theme.colors.textLight}
         value={value}
         onChangeText={onChangeText}
-        secureTextEntry={options?.secure && !showPassword}
+        secureTextEntry={options?.secure && !(fieldKey === 'confirm' ? showConfirmPassword : showPassword)}
         keyboardType={options?.keyboard}
         autoCapitalize={options?.autoCapitalize || 'none'}
         onFocus={() => setFocusedField(fieldKey)}
         onBlur={() => setFocusedField(null)}
       />
       {options?.secure && (
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-          <Icon name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textSecondary} />
+        <TouchableOpacity
+          onPress={() => fieldKey === 'confirm' ? setShowConfirmPassword(!showConfirmPassword) : setShowPassword(!showPassword)}
+          style={styles.eyeBtn}
+        >
+          <Icon name={(fieldKey === 'confirm' ? showConfirmPassword : showPassword) ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.colors.textSecondary} />
         </TouchableOpacity>
       )}
     </View>

@@ -1,5 +1,9 @@
 server:
   port: 8081
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 1024
 
 spring:
   application:
@@ -22,12 +26,18 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_batch_fetch_size: 20
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
 
 # Eureka client
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
   instance:
     prefer-ip-address: true
 

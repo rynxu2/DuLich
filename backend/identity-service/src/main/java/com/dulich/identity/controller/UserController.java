@@ -1,6 +1,7 @@
 package com.dulich.identity.controller;
 
 import com.dulich.identity.dto.*;
+import com.dulich.identity.dto.ProfileResponse;
 import com.dulich.identity.entity.UserProfile;
 import com.dulich.identity.service.AuthService;
 import com.dulich.identity.service.ProfileService;
@@ -20,8 +21,12 @@ public class UserController {
     private final AuthService authService;
 
     @GetMapping("/users")
-    public ResponseEntity<List<UserResponse>> listUsers(
+    public ResponseEntity<?> listUsers(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String callerRole,
             @RequestParam(required = false) String role) {
+        if (!"ADMIN".equals(callerRole)) {
+            return ResponseEntity.status(403).body(null);
+        }
         if (role != null && !role.isBlank()) {
             return ResponseEntity.ok(authService.getUsersByRole(role));
         }
@@ -29,30 +34,42 @@ public class UserController {
     }
 
     @GetMapping("/users/{userId}/profile")
-    public ResponseEntity<UserProfile> getProfile(@PathVariable Long userId) {
+    public ResponseEntity<ProfileResponse> getProfile(@PathVariable Long userId) {
         return ResponseEntity.ok(profileService.getProfile(userId));
     }
 
     @PutMapping("/users/{userId}/profile")
-    public ResponseEntity<UserProfile> updateProfile(
+    public ResponseEntity<ProfileResponse> updateProfile(
             @PathVariable Long userId,
             @RequestBody UserProfile updates) {
         return ResponseEntity.ok(profileService.updateProfile(userId, updates));
     }
 
     @PutMapping("/users/{userId}/role")
-    public ResponseEntity<UserResponse> updateRole(
+    public ResponseEntity<?> updateRole(
+            @RequestHeader(value = "X-User-Role", required = false) String callerRole,
             @PathVariable Long userId,
             @RequestBody Map<String, String> body) {
+        if (!"ADMIN".equals(callerRole)) {
+            return ResponseEntity.status(403).body(Map.of("message", "Only ADMIN can update roles"));
+        }
         String newRole = body.get("role");
         if (newRole == null || newRole.isBlank()) {
             throw new RuntimeException("Role is required");
         }
-        return ResponseEntity.ok(authService.updateUserRole(userId, newRole));
+        if (!List.of("USER", "GUIDE", "ADMIN").contains(newRole.toUpperCase())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid role. Must be USER, GUIDE, or ADMIN"));
+        }
+        return ResponseEntity.ok(authService.updateUserRole(userId, newRole.toUpperCase()));
     }
 
     @PostMapping("/users/guides")
-    public ResponseEntity<AuthResponse> createGuide(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> createGuide(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role,
+            @Valid @RequestBody RegisterRequest request) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(null);
+        }
         return ResponseEntity.status(201).body(authService.createGuide(request));
     }
 }

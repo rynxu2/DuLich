@@ -42,7 +42,7 @@ public class AuthController {
     @PutMapping("/users/me")
     public ResponseEntity<UserResponse> updateMyProfile(
             @RequestHeader("X-User-Id") Long userId,
-            @RequestBody UpdateProfileRequest request) {
+            @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(authService.updateUser(userId, request));
     }
 }

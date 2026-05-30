@@ -17,6 +17,7 @@ export function useUserBookings() {
       return res.data;
     },
     enabled: !!userId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }
 
@@ -50,6 +51,7 @@ export function useBookingDetail(bookingId?: number) {
       return res.data;
     },
     enabled: !!bookingId,
+    staleTime: 60 * 1000, // 1 minute
   });
 }
 

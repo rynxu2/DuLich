@@ -62,7 +62,7 @@ export default function ProfileScreen({ navigation }: Props) {
       items: [
         { icon: 'headphones', label: 'Trung tâm trợ giúp', color: theme.colors.info, onPress: () => navigation.navigate('Feedback') },
         { icon: 'cog-outline', label: 'Cài đặt', color: theme.colors.textSecondary, onPress: () => navigation.navigate('Settings') },
-        { icon: 'information-outline', label: 'Về DuLịch App', color: theme.colors.primary, onPress: () => Alert.alert('DuLịch App', 'Phiên bản 1.0.0\n\n© 2026 DuLịch App Team') },
+        { icon: 'information-outline', label: 'Về DuLịch App', color: theme.colors.primary, onPress: () => Alert.alert('DuLịch App', 'Phiên bản 1.0.0\n\n© 2026 Ha Duy Duong') },
       ],
     },
   ];

@@ -8,7 +8,7 @@ export function useTours(params: TourListParams = {}) {
       const { data } = await toursApi.list(params);
       return data;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
+    staleTime: 10 * 60 * 1000, // 10 minutes — tours rarely change
   });
 }
 
@@ -20,6 +20,7 @@ export function useTourDetail(tourId: number) {
       return data;
     },
     enabled: !!tourId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

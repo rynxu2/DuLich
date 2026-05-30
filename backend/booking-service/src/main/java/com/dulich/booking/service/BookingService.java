@@ -3,6 +3,7 @@ package com.dulich.booking.service;
 import com.dulich.booking.client.ItineraryServiceClient;
 import com.dulich.booking.client.IdentityServiceClient;
 import com.dulich.booking.client.TourServiceClient;
+import com.dulich.booking.config.RabbitMQConfig;
 import com.dulich.booking.dto.BookingRequest;
 import com.dulich.booking.dto.BookingResponse;
 import com.dulich.booking.dto.ItineraryRequest;
@@ -12,10 +13,13 @@ import com.dulich.booking.dto.ProfileStatsResponse;
 import com.dulich.booking.dto.TourResponse;
 import com.dulich.booking.entity.Booking;
 import com.dulich.booking.entity.Expense;
+import com.dulich.booking.event.BookingCreatedEvent;
 import com.dulich.booking.repository.BookingRepository;
 import com.dulich.booking.repository.ExpenseRepository;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -56,12 +61,14 @@ public class BookingService {
     private final SimpMessagingTemplate messagingTemplate;
     private final SepayService sepayService;
     private final PaymentService paymentService;
+    private final RabbitTemplate rabbitTemplate;
 
     /**
      * Create a new booking with circuit breaker protection.
      * Calls PricingEngine for dynamic pricing (rules + promo codes).
      * Returns BookingResponse — includes checkoutUrl if paymentMethod=SEPAY.
      */
+    @Transactional
     @CircuitBreaker(name = "tourService", fallbackMethod = "createBookingFallback")
     @Retry(name = "tourService")
     public BookingResponse createBooking(Long userId, BookingRequest request) {
@@ -131,7 +138,52 @@ public class BookingService {
         log.info("Booking {} created: tourId={}, total={}, discount={}, promo={}",
             savedBooking.getId(), request.getTourId(), totalPrice, discountAmount, request.getPromoCode());
 
-        // Step 3: Consume promo code (increment usage count + per-user tracking)
+        // Step 3: Reserve seats for the departure (anti-overbooking)
+        if (request.getDepartureId() != null) {
+            try {
+                Map<String, Object> reserveResult = tourServiceClient.reserveSeats(
+                    request.getDepartureId(), savedBooking.getId(), request.getTravelers());
+                boolean reserved = Boolean.TRUE.equals(reserveResult.get("success"));
+                if (!reserved) {
+                    log.error("Seat reservation failed for departureId={}, bookingId={}",
+                        request.getDepartureId(), savedBooking.getId());
+                    savedBooking.setStatus("CANCELLED");
+                    savedBooking.setUpdatedAt(LocalDateTime.now());
+                    bookingRepository.save(savedBooking);
+                    throw new RuntimeException("Không đủ chỗ trống cho chuyến đi này. Booking đã bị huỷ.");
+                }
+                log.info("Seats reserved: departureId={}, bookingId={}, seats={}",
+                    request.getDepartureId(), savedBooking.getId(), request.getTravelers());
+
+                // Phase 2: Confirm seats — permanently decrement availableSlots in DB
+                Map<String, Object> confirmResult = tourServiceClient.confirmSeats(
+                    request.getDepartureId(), savedBooking.getId(), request.getTravelers());
+                boolean confirmed = Boolean.TRUE.equals(confirmResult.get("success"));
+                if (!confirmed) {
+                    log.error("Seat confirmation (DB decrement) failed for departureId={}, bookingId={}",
+                        request.getDepartureId(), savedBooking.getId());
+                    tourServiceClient.releaseSeats(
+                        request.getDepartureId(), savedBooking.getId(), request.getTravelers());
+                    savedBooking.setStatus("CANCELLED");
+                    savedBooking.setUpdatedAt(LocalDateTime.now());
+                    bookingRepository.save(savedBooking);
+                    throw new RuntimeException("Không thể xác nhận chỗ. Booking đã bị huỷ.");
+                }
+                log.info("Seats confirmed (DB decremented): departureId={}, bookingId={}, seats={}",
+                    request.getDepartureId(), savedBooking.getId(), request.getTravelers());
+            } catch (RuntimeException re) {
+                throw re; // Re-throw our own "not enough seats" exception
+            } catch (Exception e) {
+                log.error("Failed to reserve seats for departureId={}, bookingId={}: {}",
+                    request.getDepartureId(), savedBooking.getId(), e.getMessage());
+                savedBooking.setStatus("CANCELLED");
+                savedBooking.setUpdatedAt(LocalDateTime.now());
+                bookingRepository.save(savedBooking);
+                throw new RuntimeException("Không thể đặt chỗ. Vui lòng thử lại sau.");
+            }
+        }
+
+        // Step 4: Consume promo code (increment usage count + per-user tracking)
         if (request.getPromoCode() != null && !request.getPromoCode().isBlank()) {
             try {
                 tourServiceClient.consumePromo(request.getPromoCode(), userId, savedBooking.getId());
@@ -146,7 +198,7 @@ public class BookingService {
             response.withTourInfo(tour);
         }
 
-        // Step 4: If SEPAY — create VietQR payment link and payment record
+        // Step 5: If SEPAY — create VietQR payment link and payment record
         if ("SEPAY".equalsIgnoreCase(paymentMethod)) {
             try {
                 long orderCode = generateOrderCode(savedBooking.getId());
@@ -176,6 +228,27 @@ public class BookingService {
             }
         }
 
+        // Publish booking.created event → platform-service, notification-service
+        try {
+            BookingCreatedEvent createdEvent = BookingCreatedEvent.builder()
+                    .bookingId(savedBooking.getId())
+                    .userId(savedBooking.getUserId())
+                    .tourId(savedBooking.getTourId())
+                    .totalPrice(savedBooking.getTotalPrice())
+                    .paymentMethod(savedBooking.getPaymentMethod())
+                    .contactName(savedBooking.getContactName())
+                    .contactPhone(savedBooking.getContactPhone())
+                    .build();
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.BOOKING_EXCHANGE,
+                    RabbitMQConfig.BOOKING_CREATED_KEY,
+                    createdEvent
+            );
+            log.info("Published booking.created event for booking: {}", savedBooking.getId());
+        } catch (Exception e) {
+            log.warn("Failed to publish booking.created event: {}", e.getMessage());
+        }
+
         // WebSocket notification
         try {
             messagingTemplate.convertAndSend("/topic/notifications", 
@@ -192,7 +265,7 @@ public class BookingService {
      * Format: bookingId * 10000 + random suffix to avoid collision.
      */
     private long generateOrderCode(Long bookingId) {
-        return bookingId * 10000 + (System.currentTimeMillis() % 10000);
+        return Math.abs(UUID.randomUUID().getLeastSignificantBits() % 1_000_000_000L);
     }
 
     /**
@@ -290,10 +363,11 @@ public class BookingService {
      * instead of failing. Admin can update price later.
      */
     public BookingResponse createBookingFallback(Long userId, BookingRequest request, Throwable t) {
-        log.warn("Tour Service unavailable (fallback). Creating booking with price=0. Cause: {}", t.getMessage());
+        log.warn("Tour Service unavailable (fallback). Creating booking with price=0, no seat reservation. Cause: {}", t.getMessage());
         Booking booking = Booking.builder()
             .userId(userId)
             .tourId(request.getTourId())
+            .departureId(request.getDepartureId())
             .bookingDate(request.getBookingDate())
             .travelers(request.getTravelers())
             .totalPrice(BigDecimal.ZERO)
@@ -301,9 +375,11 @@ public class BookingService {
             .contactPhone(request.getContactPhone())
             .specialRequests(request.getSpecialRequests())
             .paymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH")
-            .status("PENDING")
+            .status("PENDING_MANUAL_REVIEW")
             .build();
         Booking saved = bookingRepository.save(booking);
+        log.warn("Fallback booking {} needs manual seat verification for departureId={}",
+            saved.getId(), request.getDepartureId());
         return BookingResponse.fromBooking(saved);
     }
 
@@ -373,11 +449,30 @@ public class BookingService {
         return new PageImpl<>(enriched, pageable, page.getTotalElements());
     }
 
+    @Transactional
     public Booking cancelBooking(Long id) {
         Booking booking = getBookingById(id);
+        if (!"PENDING".equals(booking.getStatus()) && !"CONFIRMED".equals(booking.getStatus())) {
+            throw new RuntimeException("Chỉ có thể hủy booking ở trạng thái PENDING hoặc CONFIRMED. Trạng thái hiện tại: " + booking.getStatus());
+        }
         booking.setStatus("CANCELLED");
         booking.setUpdatedAt(LocalDateTime.now());
-        return bookingRepository.save(booking);
+        Booking saved = bookingRepository.save(booking);
+
+        // Release reserved seats on cancellation
+        if (booking.getDepartureId() != null) {
+            try {
+                tourServiceClient.releaseSeats(
+                    booking.getDepartureId(), booking.getId(), booking.getTravelers());
+                log.info("Seats released on cancel: departureId={}, bookingId={}, seats={}",
+                    booking.getDepartureId(), booking.getId(), booking.getTravelers());
+            } catch (Exception e) {
+                log.warn("Failed to release seats for cancelled bookingId={}: {}",
+                    booking.getId(), e.getMessage());
+            }
+        }
+
+        return saved;
     }
 
     /**
@@ -430,6 +525,17 @@ public class BookingService {
         }
         booking.setStatus("CANCELLED");
         booking.setUpdatedAt(LocalDateTime.now());
+
+        // Release seats if departure was booked
+        if (booking.getDepartureId() != null) {
+            try {
+                tourServiceClient.releaseSeats(booking.getDepartureId(), booking.getId(), booking.getTravelers());
+                log.info("Seats released for rejected booking: {}", booking.getId());
+            } catch (Exception e) {
+                log.warn("Failed to release seats for rejected booking {}: {}", booking.getId(), e.getMessage());
+            }
+        }
+
         log.info("Booking {} rejected", id);
         return bookingRepository.save(booking);
     }

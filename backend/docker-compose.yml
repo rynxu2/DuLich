@@ -298,6 +298,7 @@ services:
       <<: *java-env
       SPRING_DATASOURCE_URL: jdbc:postgresql://${AIVEN_HOST}:${AIVEN_PORT}/platform_db?sslmode=require
       MINIO_ENDPOINT: http://minio:9000
+      MINIO_EXTERNAL_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-dulich}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-dulich_secret}
       MINIO_BUCKET_NAME: dulich-files

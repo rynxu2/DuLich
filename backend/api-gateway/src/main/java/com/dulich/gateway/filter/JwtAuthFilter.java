@@ -33,13 +33,14 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
     @Value("${jwt.secret}")
     private String jwtSecret;
 
-    /** Endpoints that don't require authentication */
+    /** Endpoints that don't require authentication (any HTTP method) */
     private static final List<String> PUBLIC_ENDPOINTS = List.of(
         "/api/auth/login",
         "/api/auth/register",
+        "/api/auth/refresh",
         "/api/reviews/tour/",
-        "/api/tours",
-        "/api/storage/",
+        "/api/tours/search",
+        "/api/tours/popular",
         "/api/expenses/health",
         "/api/pricing/health",
         "/api/pricing/preview",
@@ -48,19 +49,38 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
         "/api/payments/sepay/webhook",
         "/api/payments/sepay/simulate",
         "/eureka",
+        // WebSocket — SockJS negotiation (auth happens at STOMP level)
+        "/ws",
         // Swagger / OpenAPI docs
         "/swagger-ui",
         "/v3/api-docs",
         "/webjars/"
     );
 
+    /** Endpoints that are public only for GET requests */
+    private static final List<String> GET_ONLY_PUBLIC_ENDPOINTS = List.of(
+        "/api/tours",
+        "/api/storage/"
+    );
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest request = exchange.getRequest();
         String path = request.getURI().getPath();
+        String method = request.getMethod().name();
+
+        // ALWAYS strip incoming X-User-Id/X-User-Role to prevent spoofing
+        ServerHttpRequest sanitizedRequest = request.mutate()
+            .headers(h -> {
+                h.remove("X-User-Id");
+                h.remove("X-User-Role");
+            })
+            .build();
+        exchange = exchange.mutate().request(sanitizedRequest).build();
+        request = sanitizedRequest;
 
         // Skip authentication for public endpoints
-        if (isPublicEndpoint(path)) {
+        if (isPublicEndpoint(path, method)) {
             return chain.filter(exchange);
         }
 
@@ -97,8 +117,14 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             .getPayload();
     }
 
-    private boolean isPublicEndpoint(String path) {
-        return PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+    private boolean isPublicEndpoint(String path, String method) {
+        if (PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith)) {
+            return true;
+        }
+        if ("GET".equalsIgnoreCase(method)) {
+            return GET_ONLY_PUBLIC_ENDPOINTS.stream().anyMatch(path::startsWith);
+        }
+        return false;
     }
 
     @Override

@@ -52,9 +52,14 @@ public class BookingController {
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getUserBookings(
+            @RequestHeader("X-User-Id") String requestUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
             @PathVariable Long userId,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        if (!String.valueOf(userId).equals(requestUserId) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         if (page != null && size != null) {
             Page<BookingResponse> result = bookingService.getBookingResponsesByUserId(
                 userId, PageRequest.of(page, Math.min(size, 50)));
@@ -74,22 +79,44 @@ public class BookingController {
     }
 
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<Booking> cancelBooking(@PathVariable Long id) {
+    public ResponseEntity<?> cancelBooking(
+            @RequestHeader("X-User-Id") String requestUserId,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @PathVariable Long id) {
+        Booking booking = bookingService.getBookingById(id);
+        if (!String.valueOf(booking.getUserId()).equals(requestUserId) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(bookingService.cancelBooking(id));
     }
 
     @PutMapping("/{id}/confirm")
-    public ResponseEntity<Booking> confirmBooking(@PathVariable Long id) {
+    public ResponseEntity<?> confirmBooking(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @PathVariable Long id) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(bookingService.confirmBooking(id));
     }
 
     @PutMapping("/{id}/reject")
-    public ResponseEntity<Booking> rejectBooking(@PathVariable Long id) {
+    public ResponseEntity<?> rejectBooking(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @PathVariable Long id) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(bookingService.rejectBooking(id));
     }
 
     @PutMapping("/{id}/complete")
-    public ResponseEntity<Booking> completeBooking(@PathVariable Long id) {
+    public ResponseEntity<?> completeBooking(
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @PathVariable Long id) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         return ResponseEntity.ok(bookingService.completeBooking(id));
     }
 

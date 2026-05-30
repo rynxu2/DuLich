@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.InputStream;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -19,15 +20,25 @@ public class StorageService {
 
     private final MinioClient minioClient;
 
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+        "image/jpeg", "image/png", "image/webp", "image/gif",
+        "application/pdf"
+    );
+
     @Value("${minio.bucket-name}")
     private String bucketName;
 
-    @Value("${minio.endpoint}")
-    private String minioEndpoint;
+    @Value("${minio.external-endpoint:${minio.endpoint}}")
+    private String minioExternalEndpoint;
 
     public FileResponse upload(MultipartFile file, String entityType, Long entityId) {
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType)) {
+            throw new RuntimeException("File type not allowed: " + contentType + ". Allowed: " + ALLOWED_CONTENT_TYPES);
+        }
+
         try {
-            String originalName = file.getOriginalFilename();
+            String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "unnamed";
             String fileId = UUID.randomUUID().toString().replace("-", "").substring(0, 12);
             String objectName = String.format("%s/%d/%s_%s", entityType, entityId, fileId, originalName);
 
@@ -36,7 +47,7 @@ public class StorageService {
                 .stream(file.getInputStream(), file.getSize(), -1)
                 .contentType(file.getContentType()).build());
 
-            String publicUrl = String.format("%s/%s/%s", minioEndpoint, bucketName, objectName);
+            String publicUrl = String.format("%s/%s/%s", minioExternalEndpoint, bucketName, objectName);
             log.info("Uploaded: {} ({} bytes)", originalName, file.getSize());
 
             return FileResponse.builder()

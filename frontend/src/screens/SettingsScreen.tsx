@@ -27,34 +27,6 @@ export default function SettingsScreen({ navigation }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.groupTitle}>Thông báo</Text>
-        <View style={styles.card}>
-          <SettingSwitchRow
-            icon="bell-ring-outline"
-            label="Thông báo đẩy"
-            value={pushEnabled}
-            onValueChange={setPushEnabled}
-          />
-          <SettingSwitchRow
-            icon="email-outline"
-            label="Email cập nhật"
-            value={emailEnabled}
-            onValueChange={setEmailEnabled}
-            isLast
-          />
-        </View>
-
-        <Text style={styles.groupTitle}>Bảo mật</Text>
-        <View style={styles.card}>
-          <SettingSwitchRow
-            icon="fingerprint"
-            label="Mở khóa sinh trắc học"
-            value={biometricEnabled}
-            onValueChange={setBiometricEnabled}
-            isLast
-          />
-        </View>
-
         <Text style={styles.groupTitle}>Khác</Text>
         <View style={styles.card}>
           <SettingActionRow

@@ -53,6 +53,10 @@ public class NotificationService {
         return saved;
     }
 
+    public Notification getById(Long id) {
+        return repo.findById(id).orElseThrow(() -> new RuntimeException("Notification not found: " + id));
+    }
+
     @Transactional
     public Notification markAsRead(Long id) {
         Notification n = repo.findById(id).orElseThrow(() -> new RuntimeException("Not found"));

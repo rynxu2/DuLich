@@ -34,10 +34,11 @@ public class FavoriteController {
         return ResponseEntity.ok(favoriteService.getUserFavoriteCount(userId));
     }
 
-    /** POST /favorites — add favorite { userId, tourId } */
+    /** POST /favorites — add favorite { tourId } */
     @PostMapping
-    public ResponseEntity<Favorite> addFavorite(@RequestBody Map<String, Long> body) {
-        Long userId = body.get("userId");
+    public ResponseEntity<Favorite> addFavorite(
+            @RequestHeader("X-User-Id") Long userId,
+            @RequestBody Map<String, Long> body) {
         Long tourId = body.get("tourId");
         return ResponseEntity.status(201).body(favoriteService.addFavorite(userId, tourId));
     }

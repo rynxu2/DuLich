@@ -4,6 +4,8 @@ import com.dulich.tour.entity.Review;
 import com.dulich.tour.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -15,12 +17,14 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
 
+    @CacheEvict(value = "reviews", key = "#review.tourId")
     public Review createReview(Review review) {
         Review saved = reviewRepository.save(review);
         log.info("Review created for tourId={} by userId={}", saved.getTourId(), saved.getUserId());
         return saved;
     }
 
+    @Cacheable(value = "reviews", key = "#tourId")
     public List<Review> getReviewsByTour(Long tourId) {
         return reviewRepository.findByTourIdOrderByCreatedAtDesc(tourId);
     }

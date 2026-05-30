@@ -29,12 +29,12 @@ public interface TourRepository extends JpaRepository<Tour, Long> {
     @Query("SELECT t FROM Tour t WHERE " +
            "(LOWER(t.title) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
            "LOWER(t.location) LIKE LOWER(CONCAT('%', :keyword, '%'))) AND " +
-           "LOWER(t.category) IN :category")
+           "LOWER(t.category) = :category")
     List<Tour> searchToursByKeywordAndCategory(
         @Param("keyword") String keyword,
         @Param("category") String category
     );
 
-    @Query("SELECT t FROM Tour t WHERE LOWER(t.category) IN :category")
+    @Query("SELECT t FROM Tour t WHERE LOWER(t.category) = :category")
     List<Tour> findByCategory(@Param("category") String category);
 }

@@ -74,6 +74,7 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
         const next = prev + 1;
         if (next >= TIMEOUT_MINUTES * 60) {
           setStatus('timeout');
+          return prev; // Stop incrementing after timeout
         }
         return next;
       });
@@ -122,9 +123,9 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
   // Navigate when countdown reaches 0 (outside of state setter)
   useEffect(() => {
     if (redirectCountdown === 0 && status === 'success') {
-      navigation.replace('Payment', { bookingId });
+      navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { screen: 'MyTripsTab' } }] });
     }
-  }, [redirectCountdown, status, bookingId, navigation]);
+  }, [redirectCountdown, status, navigation]);
 
   const formatElapsed = () => {
     const mins = Math.floor(elapsed / 60);
@@ -163,15 +164,15 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
           <View style={styles.redirectNotice}>
             <ActivityIndicator size="small" color={theme.colors.primary} />
             <Text style={styles.redirectText}>
-              Tự động chuyển đến chi tiết đơn hàng sau {redirectCountdown}s...
+              Tự động chuyển đến Chuyến đi sau {redirectCountdown}s...
             </Text>
           </View>
 
           <TouchableOpacity
             style={styles.primaryBtn}
-            onPress={() => navigation.replace('Payment', { bookingId })}>
-            <Icon name="receipt" size={20} color="#fff" />
-            <Text style={styles.primaryBtnText}>Xem Chi Tiết Đơn Hàng Ngay</Text>
+            onPress={() => navigation.reset({ index: 0, routes: [{ name: 'MainTabs', params: { screen: 'MyTripsTab' } }] })}>
+            <Icon name="bag-suitcase" size={20} color="#fff" />
+            <Text style={styles.primaryBtnText}>Xem Chuyến Đi Ngay</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -261,17 +262,21 @@ export default function SepayPaymentScreen({ navigation, route }: Props) {
 
         {/* Status Indicator */}
         <View style={styles.statusCard}>
-          <ActivityIndicator size="small" color={theme.colors.primary} />
-          <Text style={styles.statusText}>
-            Đang chờ xác nhận thanh toán...
+          {status === 'timeout' ? (
+            <Icon name="clock-alert-outline" size={20} color={theme.colors.error} />
+          ) : (
+            <ActivityIndicator size="small" color={theme.colors.primary} />
+          )}
+          <Text style={[styles.statusText, status === 'timeout' && { color: theme.colors.error }]}>
+            {status === 'timeout' ? 'Hết thời gian chờ thanh toán' : 'Đang chờ xác nhận thanh toán...'}
           </Text>
         </View>
 
         {/* Simulate Button (Dev/Demo) */}
         <TouchableOpacity
-          style={styles.simulateBtn}
+          style={[styles.simulateBtn, status === 'timeout' && { opacity: 0.5 }]}
           onPress={handleSimulate}
-          disabled={simulating}
+          disabled={simulating || status === 'timeout'}
           activeOpacity={0.8}>
           {simulating ? (
             <ActivityIndicator size="small" color="#fff" />

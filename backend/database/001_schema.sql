@@ -6,9 +6,10 @@
 -- Architecture: 4 databases (one per microservice)
 --   identity_db  → users, user_profiles, favorites, refresh_tokens
 --   tour_db      → tours, tour_images, tour_departures, reviews,
---                   itineraries, pricing_rules, promo_codes, guide_schedules
+--                   itineraries, pricing_rules, promo_codes, promo_usages,
+--                   guide_schedules
 --   booking_db   → bookings, payments, transactions, expenses, expense_attachments
---   platform_db  → notifications
+--   platform_db  → notifications, device_tokens
 --
 -- Usage:
 --   psql -U dulich -f 001_schema.sql
@@ -216,6 +217,19 @@ CREATE TABLE IF NOT EXISTS promo_codes (
 CREATE INDEX IF NOT EXISTS idx_promo_codes_code      ON promo_codes (code);
 CREATE INDEX IF NOT EXISTS idx_promo_codes_is_active ON promo_codes (is_active);
 
+-- ── promo_usages ──
+CREATE TABLE IF NOT EXISTS promo_usages (
+    id              BIGSERIAL       PRIMARY KEY,
+    user_id         BIGINT          NOT NULL,
+    promo_code      VARCHAR(50)     NOT NULL,
+    booking_id      BIGINT,
+    used_at         TIMESTAMP       NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_promo_usages_user_code UNIQUE (user_id, promo_code)
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_usages_user_id    ON promo_usages (user_id);
+CREATE INDEX IF NOT EXISTS idx_promo_usages_promo_code ON promo_usages (promo_code);
+
 -- ── guide_schedules ──
 CREATE TABLE IF NOT EXISTS guide_schedules (
     id              BIGSERIAL       PRIMARY KEY,
@@ -255,6 +269,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     payment_method  VARCHAR(30)      DEFAULT 'CASH',
     payment_status  VARCHAR(20)      NOT NULL DEFAULT 'UNPAID',
     paid_at         TIMESTAMP,
+    promo_code      VARCHAR(50),
+    discount_amount NUMERIC(12,2)    DEFAULT 0,
+    original_price  NUMERIC(12,2),
     created_at      TIMESTAMP        NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMP        NOT NULL DEFAULT NOW()
 );
@@ -263,6 +280,7 @@ CREATE INDEX IF NOT EXISTS idx_bookings_user_id      ON bookings (user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_tour_id      ON bookings (tour_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status       ON bookings (status);
 CREATE INDEX IF NOT EXISTS idx_bookings_booking_date ON bookings (booking_date);
+CREATE INDEX IF NOT EXISTS idx_booking_created_at    ON bookings (created_at);
 
 -- ── payments ──
 CREATE TABLE IF NOT EXISTS payments (
@@ -280,9 +298,10 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at               TIMESTAMP        NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_payments_booking_id ON payments (booking_id);
-CREATE INDEX IF NOT EXISTS idx_payments_user_id    ON payments (user_id);
-CREATE INDEX IF NOT EXISTS idx_payments_status     ON payments (status);
+CREATE INDEX IF NOT EXISTS idx_payments_booking_id      ON payments (booking_id);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id         ON payments (user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status          ON payments (status);
+CREATE INDEX IF NOT EXISTS idx_payment_provider_tx      ON payments (provider_transaction_id);
 
 -- ── transactions ──
 CREATE TABLE IF NOT EXISTS transactions (
@@ -355,7 +374,20 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at      TIMESTAMP       NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications (user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications (is_read);
-CREATE INDEX IF NOT EXISTS idx_notifications_type    ON notifications (type);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id   ON notifications (user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read   ON notifications (is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_type      ON notifications (type);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications (user_id, is_read);
+CREATE INDEX IF NOT EXISTS idx_notif_created_at        ON notifications (created_at);
+
+-- ── device_tokens ──
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id              BIGSERIAL       PRIMARY KEY,
+    user_id         BIGINT          NOT NULL,
+    token           VARCHAR(512)    NOT NULL UNIQUE,
+    platform        VARCHAR(10)     NOT NULL DEFAULT 'ANDROID',
+    created_at      TIMESTAMP       NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMP       DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_token_user ON device_tokens (user_id);

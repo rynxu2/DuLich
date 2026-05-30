@@ -55,7 +55,7 @@ export default function CreateExpenseScreen({ navigation, route }: Props) {
     try {
       await expensesApi.create({
         tourId,
-        guideId: user?.id,
+        guideId: user?.userId,
         category,
         amount: numAmount,
         description: description.trim(),

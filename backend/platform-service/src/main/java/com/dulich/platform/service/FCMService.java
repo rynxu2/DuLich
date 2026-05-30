@@ -45,10 +45,10 @@ public class FCMService {
 
                 String response = FirebaseMessaging.getInstance().send(message);
                 log.info("FCM sent to userId={}, token={}..., response={}",
-                        userId, deviceToken.getToken().substring(0, 20), response);
+                        userId, deviceToken.getToken().substring(0, Math.min(20, deviceToken.getToken().length())), response);
             } catch (Exception e) {
                 log.warn("FCM send failed for token={}: {}",
-                        deviceToken.getToken().substring(0, 20), e.getMessage());
+                        deviceToken.getToken().substring(0, Math.min(20, deviceToken.getToken().length())), e.getMessage());
                 // TODO: Remove invalid tokens (UNREGISTERED error)
             }
         }

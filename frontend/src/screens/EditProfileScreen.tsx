@@ -41,9 +41,17 @@ export default function EditProfileScreen({ navigation }: Props) {
   const [dobMonth, setDobMonth] = useState(initDob[1] || '');
   const [dobYear, setDobYear] = useState(initDob[0] || '');
 
+  const VN_PHONE_REGEX = /^(0|\+84)(3|5|7|8|9)\d{8}$/;
+
   const handleSave = async () => {
     if (!email.trim() || !fullName.trim()) {
       Alert.alert('Thiếu thông tin', 'Vui lòng nhập đầy đủ Tên và Email.');
+      return;
+    }
+    // Validate Vietnam phone format (optional field)
+    const trimmedPhone = phone.trim().replace(/\s/g, '');
+    if (trimmedPhone && !VN_PHONE_REGEX.test(trimmedPhone)) {
+      Alert.alert('Số điện thoại không hợp lệ', 'Vui lòng nhập SĐT Việt Nam hợp lệ (VD: 0912345678 hoặc +84912345678).');
       return;
     }
     setLoading(true);
@@ -57,7 +65,7 @@ export default function EditProfileScreen({ navigation }: Props) {
         bio: bio.trim() || undefined,
       });
       await restoreSession();
-      Alert.alert('Thành công', 'Hồ sơ cá nhân đã được cập nhật mượt mà.', [
+      Alert.alert('Thành công', 'Hồ sơ cá nhân đã được cập nhật.', [
         { text: 'Trở về', onPress: () => navigation.goBack() },
       ]);
     } catch (err: any) {

@@ -79,7 +79,13 @@ public class ExpenseService {
     @Transactional
     public Expense reject(Long id, Long adminId) {
         Expense e = getById(id);
-        e.setStatus("REJECTED"); e.setApprovedBy(adminId); e.setApprovedAt(LocalDateTime.now()); e.setUpdatedAt(LocalDateTime.now());
+        e.setStatus("REJECTED");
+        // BUG B18: Expense entity lacks rejectedBy/rejectedAt fields.
+        // Using approvedBy/approvedAt as a workaround — represents the admin who actioned this.
+        // TODO: Add rejectedBy/rejectedAt columns to expenses table for correct semantics.
+        e.setApprovedBy(adminId);
+        e.setApprovedAt(LocalDateTime.now());
+        e.setUpdatedAt(LocalDateTime.now());
         return expenseRepository.save(e);
     }
 

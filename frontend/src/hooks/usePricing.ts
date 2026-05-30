@@ -12,6 +12,6 @@ export function usePricingPreview(params: PricePreviewParams) {
     // Only run the query if we have the minimum required params
     enabled: !!params.tourId && params.adults > 0,
     // Keep it relatively fresh since promos or rules could expire
-    staleTime: 1000 * 60, // 1 minute
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

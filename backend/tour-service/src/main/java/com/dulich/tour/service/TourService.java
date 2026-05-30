@@ -4,9 +4,12 @@ import com.dulich.tour.entity.Tour;
 import com.dulich.tour.repository.TourRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +28,7 @@ public class TourService {
         "island", List.of("con dao", "côn đảo")
     );
 
+    @Cacheable(value = "tours", key = "'all'")
     public List<Tour> getAllTours() {
         List<Tour> tours = tourRepository.findAll();
         tours.forEach(this::initializeRelations);
@@ -39,6 +43,7 @@ public class TourService {
         return tours;
     }
 
+    @Cacheable(value = "tour-search", key = "#keyword + '-' + #category")
     public List<Tour> listTours(String keyword, String category) {
         String normalizedKeyword = normalize(keyword);
         String normalizedCategory = normalize(category);
@@ -60,6 +65,7 @@ public class TourService {
         return tours;
     }
 
+    @Cacheable(value = "tour-detail", key = "#id")
     public Tour getTourById(Long id) {
         Tour tour = tourRepository.findById(id)
             .orElseThrow(() -> new RuntimeException("Tour not found with id: " + id));
@@ -74,6 +80,7 @@ public class TourService {
     }
 
     @Transactional
+    @CacheEvict(value = {"tours", "tour-detail", "tour-search"}, allEntries = true)
     public Tour createTour(Tour tour) {
         // Set parent back-reference (Jackson @JsonIgnore skips this during deserialization)
         if (tour.getImages() != null) {
@@ -86,8 +93,10 @@ public class TourService {
     }
 
     @Transactional
+    @CacheEvict(value = {"tours", "tour-detail", "tour-search"}, allEntries = true)
     public Tour updateTour(Long id, Tour tourDetails) {
-        Tour tour = getTourById(id);
+        Tour tour = tourRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tour not found with id: " + id));
         if (tourDetails.getTitle() != null) tour.setTitle(tourDetails.getTitle());
         if (tourDetails.getDescription() != null) tour.setDescription(tourDetails.getDescription());
         if (tourDetails.getLocation() != null) tour.setLocation(tourDetails.getLocation());
@@ -122,8 +131,10 @@ public class TourService {
     }
 
     @Transactional
+    @CacheEvict(value = {"tours", "tour-detail", "tour-search"}, allEntries = true)
     public void deleteTour(Long id) {
-        Tour tour = getTourById(id);
+        Tour tour = tourRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tour not found with id: " + id));
         tourRepository.delete(tour);
     }
 
@@ -134,9 +145,20 @@ public class TourService {
         return value.trim().toLowerCase(Locale.ROOT);
     }
 
-    /** Force-initialize LAZY collections within the @Transactional boundary */
+    /**
+     * Force-initialize LAZY collections and convert to plain ArrayLists.
+     * PersistentBag (Hibernate proxy) cannot survive Redis cache round-trip
+     * because the deserialized proxy has no Session → LazyInitializationException.
+     */
     private void initializeRelations(Tour tour) {
         Hibernate.initialize(tour.getImages());
         Hibernate.initialize(tour.getDepartures());
+        // Replace Hibernate PersistentBag with plain ArrayList for cache safety
+        if (tour.getImages() != null) {
+            tour.setImages(new ArrayList<>(tour.getImages()));
+        }
+        if (tour.getDepartures() != null) {
+            tour.setDepartures(new ArrayList<>(tour.getDepartures()));
+        }
     }
 }

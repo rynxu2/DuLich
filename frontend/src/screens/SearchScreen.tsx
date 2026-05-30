@@ -7,7 +7,7 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   View, Text, StyleSheet, FlatList, ScrollView,
   TouchableOpacity, Keyboard, TextInput,
-  Image, Dimensions, Pressable, ActivityIndicator,
+  Image, Dimensions, Pressable, ActivityIndicator, Alert,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -19,6 +19,7 @@ import TourCard from '../components/TourCard';
 import SkeletonLoader from '../components/SkeletonLoader';
 import { useTours } from '../hooks/useTours';
 import { useSearchHistory } from '../hooks/useSearchHistory';
+import { useFavorites, useToggleFavorite } from '../hooks/useFavorites';
 import { Tour } from '../api/tours';
 import { MainTabParamList } from '../navigation/MainTabs';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -78,8 +79,13 @@ const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
 ];
 
 // ─── Memoized Tour Card ───
-const MemoTourCard = React.memo(({ tour, onPress }: { tour: Tour; onPress: () => void }) => (
-  <TourCard tour={tour} onPress={onPress} />
+const MemoTourCard = React.memo(({ tour, onPress, isFavorite, onFavoritePress }: {
+  tour: Tour;
+  onPress: () => void;
+  isFavorite?: boolean;
+  onFavoritePress?: () => void;
+}) => (
+  <TourCard tour={tour} onPress={onPress} isFavorite={isFavorite} onFavoritePress={onFavoritePress} />
 ));
 
 export default function SearchScreen({ navigation }: Props) {
@@ -107,6 +113,17 @@ export default function SearchScreen({ navigation }: Props) {
 
   // All tours for autocomplete (cached from first load)
   const { data: allTours = [] } = useTours({});
+
+  const { data: favorites = [] } = useFavorites();
+  const { mutate: toggleFavorite } = useToggleFavorite();
+
+  const handleToggleFavorite = useCallback((tourId: number) => {
+    toggleFavorite(tourId, {
+      onError: () => {
+        Alert.alert('Lỗi', 'Không thể cập nhật yêu thích. Vui lòng thử lại.');
+      }
+    });
+  }, [toggleFavorite]);
 
   // ─── Debounced autocomplete suggestions ───
   useEffect(() => {
@@ -238,8 +255,13 @@ export default function SearchScreen({ navigation }: Props) {
   }, []);
 
   const renderTourItem = useCallback(({ item }: { item: Tour }) => (
-    <MemoTourCard tour={item} onPress={() => navigation.navigate('TourDetail', { tourId: item.id })} />
-  ), [navigation]);
+    <MemoTourCard
+      tour={item}
+      onPress={() => navigation.navigate('TourDetail', { tourId: item.id })}
+      isFavorite={favorites.some(fav => fav.id === item.id)}
+      onFavoritePress={() => handleToggleFavorite(item.id)}
+    />
+  ), [navigation, favorites, handleToggleFavorite]);
 
   const keyExtractor = useCallback((item: Tour) => item.id.toString(), []);
 

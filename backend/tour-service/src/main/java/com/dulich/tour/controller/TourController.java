@@ -57,17 +57,33 @@ public class TourController {
     }
 
     @PostMapping
-    public ResponseEntity<Tour> createTour(@RequestBody Tour tour) {
+    public ResponseEntity<?> createTour(
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @RequestBody Tour tour) {
+        if (!"ADMIN".equals(userRole)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(tourService.createTour(tour));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Tour> updateTour(@PathVariable Long id, @RequestBody Tour tour) {
+    public ResponseEntity<?> updateTour(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole,
+            @RequestBody Tour tour) {
+        if (!"ADMIN".equals(userRole)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(tourService.updateTour(id, tour));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteTour(@PathVariable Long id) {
+    public ResponseEntity<?> deleteTour(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        if (!"ADMIN".equals(userRole)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         tourService.deleteTour(id);
         return ResponseEntity.noContent().build();
     }

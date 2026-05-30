@@ -39,7 +39,7 @@ export default function FeedbackScreen({ navigation }: Props) {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedTopic) {
       Alert.alert('Lỗi', 'Vui lòng chọn chủ đề phản hồi');
       return;
@@ -49,10 +49,22 @@ export default function FeedbackScreen({ navigation }: Props) {
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      // TODO: Replace with dedicated POST /feedback endpoint when available
+      // For now, create a notification to admin as a feedback record
+      const { notificationsApi } = require('../api/notifications');
+      await notificationsApi.create({
+        userId: 1, // Admin user
+        title: `Phản hồi: ${TOPICS.find(t => t.id === selectedTopic)?.label || selectedTopic}`,
+        message: message.trim(),
+        type: 'FEEDBACK',
+      });
       setSubmitted(true);
-    }, 1500);
+    } catch {
+      Alert.alert('Lỗi', 'Không thể gửi phản hồi lúc này. Vui lòng thử lại sau.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {

@@ -29,7 +29,11 @@ public class AnalyticsController {
     }
 
     @GetMapping("/revenue")
-    public ResponseEntity<Map<String, Object>> getRevenue() {
+    public ResponseEntity<?> getRevenue(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Map.of(
             "totalRevenue", 0,
             "monthlyRevenue", Collections.emptyList(),
@@ -38,7 +42,11 @@ public class AnalyticsController {
     }
 
     @GetMapping("/profit/summary")
-    public ResponseEntity<Map<String, Object>> getProfitSummary() {
+    public ResponseEntity<?> getProfitSummary(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Map.of(
             "totalRevenue", 0,
             "totalCost", 0,
@@ -48,12 +56,20 @@ public class AnalyticsController {
     }
 
     @GetMapping("/profit/all")
-    public ResponseEntity<List<Map<String, Object>>> getAllProfits() {
+    public ResponseEntity<?> getAllProfits(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Collections.emptyList());
     }
 
     @GetMapping("/profit/tour/{tourId}")
-    public ResponseEntity<Map<String, Object>> getTourProfit(@PathVariable Long tourId) {
+    public ResponseEntity<?> getTourProfit(@PathVariable Long tourId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Map.of(
             "tourId", tourId,
             "totalRevenue", 0,
@@ -63,7 +79,11 @@ public class AnalyticsController {
     }
 
     @GetMapping("/cost-breakdown/tour/{tourId}")
-    public ResponseEntity<Map<String, Object>> getCostBreakdown(@PathVariable Long tourId) {
+    public ResponseEntity<?> getCostBreakdown(@PathVariable Long tourId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Map.of(
             "tourId", tourId,
             "breakdown", Collections.emptyList()

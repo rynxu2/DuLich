@@ -22,7 +22,7 @@ public class TourImage {
     private Long id;
 
     @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "tour_id", nullable = false)
     private Tour tour;
 

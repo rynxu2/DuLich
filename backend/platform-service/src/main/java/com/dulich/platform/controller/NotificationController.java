@@ -26,7 +26,12 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
-    public ResponseEntity<Notification> markRead(@PathVariable Long id) {
+    public ResponseEntity<?> markRead(@PathVariable Long id,
+                                      @RequestHeader("X-User-Id") Long userId) {
+        Notification notification = service.getById(id);
+        if (!notification.getUserId().equals(userId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Not authorized to mark this notification"));
+        }
         return ResponseEntity.ok(service.markAsRead(id));
     }
 
@@ -36,7 +41,12 @@ public class NotificationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(@PathVariable Long id,
+                                    @RequestHeader("X-User-Id") Long requestUserId) {
+        Notification notification = service.getById(id);
+        if (!notification.getUserId().equals(requestUserId)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Not authorized to delete this notification"));
+        }
         service.delete(id);
         return ResponseEntity.noContent().build();
     }

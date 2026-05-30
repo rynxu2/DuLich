@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { reviewsApi, toursApi } from '@/lib/api';
+import { reviewsApi, toursApi, getMediaUrl } from '@/lib/api';
 import { Star, Trash2, Search, MessageSquare, User, Info, Map } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
@@ -239,8 +239,8 @@ export default function ReviewsPage() {
                         {r.imageUrls && r.imageUrls.length > 0 && (
                           <div className="flex flex-wrap gap-3 mt-4">
                             {r.imageUrls.map((url: string, idx: number) => (
-                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="block relative group/img overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
-                                <img src={url} alt="" className="w-20 h-20 object-cover group-hover/img:scale-110 transition-transform duration-300" />
+                              <a key={idx} href={getMediaUrl(url)} target="_blank" rel="noreferrer" className="block relative group/img overflow-hidden rounded-xl border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md transition-shadow">
+                                <img src={getMediaUrl(url)} alt="" className="w-20 h-20 object-cover group-hover/img:scale-110 transition-transform duration-300" />
                                 <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/10 transition-colors" />
                               </a>
                             ))}

@@ -87,6 +87,12 @@
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>2.5.0</version>
 		</dependency>
+
+        <!-- Jackson Hibernate6 module — handles lazy proxy serialization for Redis cache -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-hibernate6</artifactId>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>

@@ -14,7 +14,11 @@ public class AdminController {
     }
 
     @GetMapping("/dashboard")
-    public ResponseEntity<Map<String, Object>> dashboard() {
+    public ResponseEntity<?> dashboard(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String role) {
+        if (!"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).body(Map.of("error", "Admin access required"));
+        }
         return ResponseEntity.ok(Map.of(
             "service", "platform-service",
             "modules", new String[]{"notifications", "analytics", "admin", "storage"}

@@ -67,8 +67,8 @@ public class ReviewController {
                     .body(Map.of("message", "Bạn đã đánh giá cho tất cả chuyến đi hoàn thành. Hãy hoàn thành thêm chuyến đi để đánh giá tiếp."));
             }
         } catch (Exception e) {
-            log.warn("Could not verify review eligibility for user {}, tour {}: {}",
-                     uid, review.getTourId(), e.getMessage());
+            log.warn("Could not verify review eligibility: {}", e.getMessage());
+            return ResponseEntity.status(503).build();
         }
 
         return ResponseEntity.ok(reviewService.createReview(review));
@@ -95,7 +95,15 @@ public class ReviewController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<?> delete(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader(value = "X-User-Role", required = false) String role,
+            @PathVariable Long id) {
+        Review review = reviewRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Review not found: " + id));
+        if (!String.valueOf(review.getUserId()).equals(userId) && !"ADMIN".equals(role)) {
+            return ResponseEntity.status(403).build();
+        }
         reviewService.deleteReview(id);
         return ResponseEntity.noContent().build();
     }

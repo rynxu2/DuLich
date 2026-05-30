@@ -45,12 +45,12 @@ export default function ReviewScreen({ navigation, route }: Props) {
 
   // Guard: verify user can review (completedBookings > existingReviews)
   const { data: canReviewCheck, isLoading: checkingCompleted } = useQuery({
-    queryKey: ['can-review', tourId, user?.id],
+    queryKey: ['can-review', tourId, user?.userId],
     queryFn: async () => {
       const res = await reviewsApi.canReview(tourId);
       return res.data;
     },
-    enabled: !!user?.id && !!tourId,
+    enabled: !!user?.userId && !!tourId,
   });
   const canReview = canReviewCheck?.canReview === true;
 

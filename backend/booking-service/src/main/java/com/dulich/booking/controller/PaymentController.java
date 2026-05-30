@@ -1,12 +1,12 @@
 package com.dulich.booking.controller;
 
+import com.dulich.booking.dto.PaymentRequest;
 import com.dulich.booking.entity.Payment;
 import com.dulich.booking.service.PaymentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import java.util.List;
-import java.util.Map;
-import java.math.BigDecimal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,12 +17,9 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping("/process")
-    public ResponseEntity<Payment> processPayment(@RequestBody Map<String, Object> requestBody) {
-        Long bookingId = Long.valueOf(requestBody.get("bookingId").toString());
-        Long userId = Long.valueOf(requestBody.get("userId").toString());
-        BigDecimal amount = new BigDecimal(requestBody.get("amount").toString());
-
-        Payment payment = paymentService.processPayment(bookingId, userId, amount);
+    public ResponseEntity<Payment> processPayment(@Valid @RequestBody PaymentRequest request) {
+        Payment payment = paymentService.processPayment(
+            request.getBookingId(), request.getUserId(), request.getAmount());
         return ResponseEntity.ok(payment);
     }
 

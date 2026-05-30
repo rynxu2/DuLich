@@ -12,9 +12,7 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = __DEV__
-  ? 'http://10.0.2.2:8080/api'  // Android emulator → host machine
-  : 'http://localhost:8080/api';
+const API_BASE_URL = 'https://7ffa-2405-4802-1f94-5c10-61bd-95b3-fcbf-a0cd.ngrok-free.app/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,

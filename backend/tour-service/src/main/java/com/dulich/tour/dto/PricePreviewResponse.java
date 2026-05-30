@@ -17,6 +17,9 @@ public class PricePreviewResponse {
     private BigDecimal totalDiscount;
     private BigDecimal finalPrice;
     private BigDecimal savings;
+    private int totalParticipants;
+    @Builder.Default
+    private String currency = "VND";
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class AppliedRule {

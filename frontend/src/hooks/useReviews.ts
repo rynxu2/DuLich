@@ -16,6 +16,7 @@ export function useUserReviews() {
       return res.data;
     },
     enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }
 

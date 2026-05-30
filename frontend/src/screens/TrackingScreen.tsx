@@ -8,7 +8,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { wsService } from '../services/websocket';
 import { theme } from '../theme';
-import useAuthStore from '../store/useAuthStore';
+import { useAuthStore } from '../store/useAuthStore';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Tracking'>;
@@ -54,8 +54,8 @@ export default function TrackingScreen({ navigation, route }: Props) {
     lng += (Math.random() - 0.5) * 0.005;
 
     wsService.publish('/app/tracking.update', {
-      guideId: user?.id || 1,
-      tourId: parseInt(tourId),
+      guideId: user?.userId || 1,
+      tourId: tourId,
       lat: lat,
       lng: lng,
       timestamp: new Date().toISOString()
@@ -75,7 +75,7 @@ export default function TrackingScreen({ navigation, route }: Props) {
     // Subscribe to STOMP topic for live guide locations
     const topic = `/topic/tracking`;
     const subId = wsService.subscribe(topic, (msg: any) => {
-      if (msg && msg.lat && msg.lng && msg.tourId == tourId) {
+      if (msg && msg.lat && msg.lng && Number(msg.tourId) === tourId) {
         setGuideLocation({
           latitude: msg.lat,
           longitude: msg.lng,

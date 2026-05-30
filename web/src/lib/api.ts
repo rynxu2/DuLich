@@ -205,3 +205,10 @@ export const guidesApi = {
   updateStatus: (id: number, status: string) => apiClient.put(`/guides/schedules/${id}/status`, { status }),
   delete: (id: number) => apiClient.delete(`/guides/schedules/${id}`),
 };
+
+// ── Media URL Utility ──
+export const getMediaUrl = (url?: string): string => {
+  if (!url) return '';
+  // Replace internal docker DNS "minio" with "localhost" for browser access in local dev
+  return url.replace('http://minio:9000', 'http://localhost:9000');
+};

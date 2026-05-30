@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { toursApi, storageApi } from '@/lib/api';
+import { toursApi, storageApi, getMediaUrl } from '@/lib/api';
 import { Plus, Pencil, Trash2, Search, MapPin, X, Image as ImageIcon, Map, Star, CalendarDays, Users, Baby, GripVertical, Crown, Images, CalendarPlus, Plane } from 'lucide-react';
 import { Pagination } from '@/components/Pagination';
 
@@ -355,7 +355,7 @@ export default function ToursPage() {
                     <div className="flex items-center gap-4">
                       {t.imageUrl ? (
                         <div className="w-14 h-14 rounded-xl overflow-hidden shrink-0 border border-slate-200 dark:border-white/10 shadow-sm group-hover:shadow-md transition-shadow">
-                          <img src={t.imageUrl} alt={t.title} className="w-full h-full object-cover" />
+                          <img src={getMediaUrl(t.imageUrl)} alt={t.title} className="w-full h-full object-cover" />
                         </div>
                       ) : (
                         <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-white/10 flex items-center justify-center shrink-0">
@@ -626,7 +626,7 @@ export default function ToursPage() {
                                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
                               }`}
                             >
-                              <img src={img.imageUrl} alt={img.caption || `Ảnh ${index + 1}`} className="w-full h-28 object-cover" />
+                              <img src={getMediaUrl(img.imageUrl)} alt={img.caption || `Ảnh ${index + 1}`} className="w-full h-28 object-cover" />
                               
                               {/* Thumbnail badge */}
                               {isThumbnail && (
@@ -675,7 +675,7 @@ export default function ToursPage() {
                       <div className="space-y-2">
                         {form.galleryImages.map((img, index) => (
                           <div key={index} className="flex items-center gap-2">
-                            <img src={img.imageUrl} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700" />
+                            <img src={getMediaUrl(img.imageUrl)} alt="" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-slate-200 dark:border-slate-700" />
                             <span className="text-[10px] font-bold text-slate-400 w-4 shrink-0">{index + 1}</span>
                             <input
                               value={img.caption}
